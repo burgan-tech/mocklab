@@ -1,0 +1,62 @@
+# .NET
+bin/
+obj/
+publish/
+
+# User secrets
+secrets.json
+
+# ASP.NET Core
+appsettings.*.local.json
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Node.js
+node_modules/
+dist/
+
+# IDE / Editor
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*~
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# Frontend build output (embedded in DLL via dotnet build)
+src/Mocklab.App/wwwroot/_mocklab/
+
+# Docker
+docker-compose.override.yml
+
+# Environment files
+.env
+.env.*
+!.env.example

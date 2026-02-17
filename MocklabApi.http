@@ -1,0 +1,158 @@
+### Mock Response Servisi Test İstekleri
+
+@host = http://localhost:5000
+
+### ============================================
+### ADMIN API - Mock Yönetimi
+### ============================================
+
+### 1. Tüm mock'ları listele
+GET {{host}}/_admin/mocks
+
+### 2. Sadece aktif mock'ları listele
+GET {{host}}/_admin/mocks?isActive=true
+
+### 3. Belirli bir mock'u getir
+GET {{host}}/_admin/mocks/1
+
+### 4. Yeni mock ekle - GET request
+POST {{host}}/_admin/mocks
+Content-Type: application/json
+
+{
+  "httpMethod": "GET",
+  "route": "/api/orders",
+  "statusCode": 200,
+  "responseBody": "{\"orders\": [{\"id\": 1, \"total\": 250.00}, {\"id\": 2, \"total\": 180.50}]}",
+  "contentType": "application/json",
+  "description": "Sipariş listesi",
+  "isActive": true
+}
+
+### 5. Yeni mock ekle - POST request
+POST {{host}}/_admin/mocks
+Content-Type: application/json
+
+{
+  "httpMethod": "POST",
+  "route": "/api/orders",
+  "statusCode": 201,
+  "responseBody": "{\"id\": 100, \"message\": \"Order created\", \"total\": 350.00}",
+  "contentType": "application/json",
+  "description": "Yeni sipariş oluşturma",
+  "isActive": true
+}
+
+### 6. Yeni mock ekle - Parametreli route
+POST {{host}}/_admin/mocks
+Content-Type: application/json
+
+{
+  "httpMethod": "GET",
+  "route": "/api/orders/{id}",
+  "statusCode": 200,
+  "responseBody": "{\"id\": 1, \"status\": \"completed\", \"total\": 250.00, \"items\": [{\"name\": \"Product A\", \"price\": 250.00}]}",
+  "contentType": "application/json",
+  "description": "Sipariş detayı",
+  "isActive": true
+}
+
+### 7. Yeni mock ekle - Query string ile
+POST {{host}}/_admin/mocks
+Content-Type: application/json
+
+{
+  "httpMethod": "GET",
+  "route": "/api/search",
+  "queryString": "?q=laptop",
+  "statusCode": 200,
+  "responseBody": "{\"query\": \"laptop\", \"results\": [{\"id\": 1, \"name\": \"Gaming Laptop\", \"price\": 1500}]}",
+  "contentType": "application/json",
+  "description": "Arama sonuçları",
+  "isActive": true
+}
+
+### 8. Mock güncelle
+PUT {{host}}/_admin/mocks/1
+Content-Type: application/json
+
+{
+  "httpMethod": "GET",
+  "route": "/api/users",
+  "statusCode": 200,
+  "responseBody": "{\"users\": [{\"id\": 1, \"name\": \"John Updated\"}, {\"id\": 2, \"name\": \"Jane Updated\"}]}",
+  "contentType": "application/json",
+  "description": "Güncellenmiş kullanıcı listesi",
+  "isActive": true
+}
+
+### 9. Mock'u aktif/pasif yap (toggle)
+PATCH {{host}}/_admin/mocks/1/toggle
+
+### 10. Mock sil
+DELETE {{host}}/_admin/mocks/5
+
+### 11. Tüm mock'ları temizle (DİKKAT!)
+# DELETE {{host}}/_admin/mocks/clear
+
+### ============================================
+### MOCK RESPONSE TESTLERI
+### ============================================
+
+### Test 1: Kullanıcı listesi (seed data)
+GET {{host}}/api/users
+
+### Test 2: Tekil kullanıcı (parametreli route, seed data)
+GET {{host}}/api/users/123
+
+### Test 3: Farklı ID ile kullanıcı
+GET {{host}}/api/users/456
+
+### Test 4: Ürün listesi (kategorili, seed data)
+GET {{host}}/api/products?category=electronics
+
+### Test 5: POST - Yeni kullanıcı (seed data)
+POST {{host}}/api/users
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+}
+
+### Test 6: Tanımsız route (404 dönmeli)
+GET {{host}}/api/undefined/route
+
+### Test 7: PUT request
+PUT {{host}}/api/users/1
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "email": "updated@example.com"
+}
+
+### Test 8: DELETE request
+DELETE {{host}}/api/users/1
+
+### Test 9: Sipariş listesi (yukarıda oluşturulursa)
+GET {{host}}/api/orders
+
+### Test 10: Sipariş detayı (yukarıda oluşturulursa)
+GET {{host}}/api/orders/123
+
+### Test 11: Arama (yukarıda oluşturulursa)
+GET {{host}}/api/search?q=laptop
+
+### ============================================
+### EDGE CASE TESTLERI
+### ============================================
+
+### Test: Çok uzun route
+GET {{host}}/api/very/long/route/with/many/segments/test
+
+### Test: Özel karakterlerle route
+GET {{host}}/api/users/test@email.com
+
+### Test: Query string ile kombinasyon
+GET {{host}}/api/products?category=electronics&sort=price&order=desc

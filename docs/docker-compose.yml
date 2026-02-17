@@ -1,0 +1,43 @@
+services:
+  mocklab:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: mocklab
+    ports:
+      - "8080:5000"
+    environment:
+      # Database connection
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=mocklab;Username=postgres;Password=postgres"
+      # Mocklab configuration
+      Mocklab__UseHostDatabase: "true"
+      Mocklab__DatabaseProvider: "postgresql"
+      Mocklab__SchemaName: "mocklab"
+      Mocklab__AutoMigrate: "true"
+      Mocklab__SeedSampleData: "true"
+      Mocklab__EnableUI: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: mocklab-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: mocklab
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
