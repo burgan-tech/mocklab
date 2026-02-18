@@ -1,0 +1,267 @@
+name: Build and Publish (Docker + NuGet)
+
+on:
+  push:
+    branches:
+      - 'release-v*'
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: 'Override version (e.g., 1.0.6). Leave empty to auto-calculate from branch or csproj.'
+        required: false
+        type: string
+      force_publish:
+        description: 'Force publish NuGet packages even if they already exist'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Generate GitHub App Token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for version calculation
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Calculate version
+        id: version
+        run: |
+          # Check if version is manually provided
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            VERSION="${{ github.event.inputs.version_override }}"
+            echo "Using manual version override: $VERSION"
+          else
+            # Extract version from branch name (e.g., release-v1.0 -> 1.0)
+            BRANCH_NAME="${{ github.ref_name }}"
+
+            if [[ "$BRANCH_NAME" =~ ^release-v([0-9]+\.[0-9]+)$ ]]; then
+              BASE_VERSION="${BASH_REMATCH[1]}"
+              echo "Base version from branch: $BASE_VERSION"
+
+              # Find the next available patch version
+              PATCH=0
+              while true; do
+                VERSION="${BASE_VERSION}.${PATCH}"
+                TAG="v${VERSION}"
+
+                # Check if this tag already exists
+                if git tag -l "$TAG" | grep -q "^$TAG$"; then
+                  echo "Version $VERSION already exists, trying next patch version..."
+                  PATCH=$((PATCH + 1))
+                else
+                  echo "Found available version: $VERSION"
+                  break
+                fi
+
+                # Safety check to prevent infinite loop
+                if [ $PATCH -gt 100 ]; then
+                  echo "Error: Could not find available patch version after 100 attempts"
+                  exit 1
+                fi
+              done
+            else
+              # Fallback to version from csproj (no common.props in Mocklab)
+              echo "Branch name doesn't match release-vX.Y pattern, using version from csproj"
+              VERSION=$(grep '<Version>' ./src/Mocklab.App/Mocklab.App.csproj | sed 's/.*<Version>\(.*\)<\/Version>.*/\1/' | head -n 1 | tr -d ' ')
+
+              if [ -z "$VERSION" ]; then
+                echo "Error: Could not determine version"
+                exit 1
+              fi
+            fi
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Final version: $VERSION"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore ./Mocklab.slnx
+
+      - name: Build solution
+        run: |
+          dotnet build ./Mocklab.slnx \
+            --configuration Release \
+            --no-restore \
+            -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ steps.generate_token.outputs.token }}
+
+      - name: Extract metadata for Docker image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create NuGet packages
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          OUTPUT_DIR="${{ github.workspace }}/packages"
+          mkdir -p "$OUTPUT_DIR"
+
+          dotnet pack ./src/Mocklab.App/Mocklab.App.csproj \
+            --configuration Release \
+            --no-build \
+            --output "$OUTPUT_DIR" \
+            -p:Version=$VERSION \
+            -p:IncludeSymbols=true \
+            -p:SymbolPackageFormat=snupkg \
+            -p:GenerateDocumentationFile=true \
+            -p:PublishRepositoryUrl=true \
+            -p:EmbedUntrackedSources=true \
+            -p:ContinuousIntegrationBuild=true
+
+          echo "Created packages:"
+          ls -la "$OUTPUT_DIR"
+
+      - name: Upload NuGet packages as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ steps.version.outputs.version }}
+          path: packages/
+          retention-days: 30
+
+      - name: Publish to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          # Check if API key is configured
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "Error: NUGET_API_KEY secret is not configured"
+            echo "Please add your NuGet.org API key as a repository secret named 'NUGET_API_KEY'"
+            echo "Get your API key from: https://www.nuget.org/account/apikeys"
+            exit 1
+          fi
+
+          echo "Publishing packages to NuGet.org..."
+
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force_publish }}" == "true" ]; then
+            echo "Force publish enabled - will attempt to push even if packages exist"
+          else
+            FORCE_FLAG="--skip-duplicate"
+          fi
+
+          SUCCESS_COUNT=0
+          TOTAL_COUNT=0
+
+          for package in ./packages/*.nupkg; do
+            if [[ -f "$package" ]] && [[ ! "$package" == *.symbols.nupkg ]]; then
+              TOTAL_COUNT=$((TOTAL_COUNT + 1))
+              package_name=$(basename "$package")
+              echo "Publishing: $package_name"
+
+              if dotnet nuget push "$package" \
+                --source "https://api.nuget.org/v3/index.json" \
+                --api-key "$NUGET_API_KEY" \
+                $FORCE_FLAG; then
+                echo "Successfully published: $package_name"
+                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+              else
+                echo "Failed to publish: $package_name"
+              fi
+              echo ""
+            fi
+          done
+
+          echo "Publication Summary: Successfully published $SUCCESS_COUNT/$TOTAL_COUNT packages"
+
+          if [ $SUCCESS_COUNT -eq 0 ] && [ $TOTAL_COUNT -gt 0 ]; then
+            echo "No packages were successfully published"
+            if [ "${{ github.event.inputs.force_publish }}" != "true" ]; then
+              echo "Tip: If you want to republish existing versions, use the 'force_publish' option"
+            fi
+            exit 1
+          fi
+
+      - name: Create Git Tag
+        if: success()
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v$VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git tag -l "$TAG" | grep -q "^$TAG$"; then
+            echo "Tag $TAG already exists, skipping tag creation"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag: $TAG"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Build and Publish Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Version Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### NuGet" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: Mocklab.App" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Pull image: \`docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Install package: \`dotnet add package Mocklab.App --version ${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
