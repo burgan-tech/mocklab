@@ -71,6 +71,17 @@ docker run -d --name mocklab -p 8080:5000 mocklab:latest
 | Database | SQLite, PostgreSQL, SQL Server |
 | Frontend | React 19, PrimeReact 10, Vite 7 |
 
+## Publishing (CI/CD)
+
+Releases are built and published automatically via GitHub Actions (`.github/workflows/build-and-publish.yml`):
+
+- **Trigger:** Push to a `release-v*` branch (e.g. `release-v1.0`) or run the workflow manually.
+- **Outputs:** A Docker image is published to GitHub Container Registry (`ghcr.io/<org>/mocklab`) and the **Mocklab.App** NuGet package is published to NuGet.org.
+- **Version:** On `release-vX.Y` branches, the next unused patch version (e.g. `1.0.0`, `1.0.1`) is used. You can override the version when triggering the workflow manually.
+- **Required secrets:**
+  - `NUGET_API_KEY` — for NuGet publish (create at [NuGet.org](https://www.nuget.org/account/apikeys)).
+  - `APP_ID` and `APP_PRIVATE_KEY` — GitHub App credentials used for checkout and pushing the Docker image to GHCR (same pattern as other org repos).
+
 ## License
 
 MIT
