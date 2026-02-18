@@ -8,10 +8,10 @@
     <!-- NuGet Package Metadata -->
     <PackageId>Mocklab.App</PackageId>
     <Version>1.0.0</Version>
-    <Authors>Mocklab Contributors</Authors>
+    <Authors>Burgan Tech LLC</Authors>
     <Description>Easy-to-use API mocking service for ASP.NET Core. Can be used standalone or integrated into existing projects like Swagger.</Description>
     <PackageTags>mock;api;testing;aspnetcore;swagger;development</PackageTags>
-    <RepositoryUrl>https://github.com/yourusername/mocklab</RepositoryUrl>
+    <RepositoryUrl>https://github.com/burgan-tech/mocklab</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
