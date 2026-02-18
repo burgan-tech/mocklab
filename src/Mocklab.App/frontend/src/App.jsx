@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PrimeReactProvider } from 'primereact/api';
 import Layout from './components/Layout';
 import MockManagementPage from './pages/MockManagementPage';
+import RequestLogsPage from './pages/RequestLogsPage';
+import CollectionsPage from './pages/CollectionsPage';
 
 // PrimeReact styles
 import 'primereact/resources/themes/lara-light-indigo/theme.css';
@@ -18,6 +20,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<MockManagementPage />} />
+            <Route path="logs" element={<RequestLogsPage />} />
+            <Route path="collections" element={<CollectionsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

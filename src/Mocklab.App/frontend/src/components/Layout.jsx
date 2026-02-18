@@ -1,13 +1,15 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Ripple } from 'primereact/ripple';
 import { classNames } from 'primereact/utils';
+import { Badge } from 'primereact/badge';
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarActive, setSidebarActive] = useState(true);
+  const [mobileMenuActive, setMobileMenuActive] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 991);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 991);
@@ -15,125 +17,150 @@ export default function Layout() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Close sidebar on mobile when route changes
+  // Close mobile menu on route change
   useEffect(() => {
-    if (isMobile) {
-      setSidebarActive(false);
-    }
-  }, [location.pathname, isMobile]);
+    setMobileMenuActive(false);
+  }, [location.pathname]);
 
-  const menuItems = [
-    {
-      label: 'Main',
-      items: [
-        { label: 'Mock Responses', icon: 'pi pi-fw pi-database', to: '/' },
-      ]
-    },
-    {
-      label: 'Resources',
-      items: [
-        { label: 'API Docs', icon: 'pi pi-fw pi-book', url: '/openapi/v1.json', target: '_blank' },
-        { label: 'GitHub', icon: 'pi pi-fw pi-github', url: 'https://github.com', target: '_blank' },
-      ]
-    }
+  // Close mobile menu on outside click
+  useEffect(() => {
+    if (!mobileMenuActive) return;
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMobileMenuActive(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [mobileMenuActive]);
+
+  const navItems = [
+    { label: 'Mock Responses', icon: 'pi pi-database', to: '/' },
+    { label: 'Request Logs', icon: 'pi pi-list', to: '/logs', badge: '23' },
+    { label: 'Collections', icon: 'pi pi-folder', to: '/collections' },
+  ];
+
+  const resourceItems = [
+    { label: 'API Docs', icon: 'pi pi-book', url: '/openapi/v1.json', target: '_blank' },
+    { label: 'GitHub', icon: 'pi pi-github', url: 'https://github.com', target: '_blank' },
   ];
 
   const onMenuToggle = useCallback(() => {
-    setSidebarActive(prev => !prev);
+    setMobileMenuActive(prev => !prev);
   }, []);
 
-  const onMenuItemClick = useCallback((item) => {
+  const onNavItemClick = useCallback((item) => {
     if (item.to) {
       navigate(item.to);
     }
   }, [navigate]);
 
   const isActiveRoute = (item) => {
-    return item.to && location.pathname === item.to;
+    if (item.to === '/') return location.pathname === '/';
+    return item.to && location.pathname.startsWith(item.to);
   };
 
-  const wrapperClass = classNames('layout-wrapper', {
-    'layout-static': !isMobile,
-    'layout-static-inactive': !isMobile && !sidebarActive,
-    'layout-mobile-active': isMobile && sidebarActive,
-  });
-
   return (
-    <div className={wrapperClass}>
+    <div className="layout-wrapper">
       {/* Topbar */}
       <div className="layout-topbar">
-        <button
-          className="layout-topbar-button layout-menu-button"
-          onClick={onMenuToggle}
-          aria-label="Toggle Menu"
-        >
-          <i className="pi pi-bars"></i>
-        </button>
-
-        <div className="layout-topbar-logo" onClick={() => navigate('/')}>
-          <i className="pi pi-server"></i>
-          <span>Mocklab</span>
+        <div className="layout-topbar-start">
+          <div className="layout-topbar-logo" onClick={() => navigate('/')}>
+            <i className="pi pi-server"></i>
+            <div className="layout-topbar-logo-text">
+              <span className="layout-topbar-app-name">Mocklab</span>
+              <span className="layout-topbar-app-subtitle">API MOCK SERVER</span>
+            </div>
+          </div>
         </div>
 
-        <ul className="layout-topbar-menu">
-          <li>
+        {/* Desktop navigation */}
+        <nav className="layout-topbar-nav">
+          {navItems.map((item, idx) => (
             <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="layout-topbar-button"
-              title="GitHub"
+              key={idx}
+              onClick={() => onNavItemClick(item)}
+              className={classNames('layout-topbar-nav-item p-ripple', {
+                'active-route': isActiveRoute(item),
+              })}
             >
-              <i className="pi pi-github"></i>
+              <i className={item.icon}></i>
+              <span>{item.label}</span>
+              {item.badge && <Badge value={item.badge} severity="danger" />}
+              <Ripple />
             </a>
-          </li>
-        </ul>
-      </div>
-
-      {/* Sidebar */}
-      <div className="layout-sidebar">
-        <ul className="layout-menu">
-          {menuItems.map((section, sIdx) => (
-            <li key={sIdx} className="layout-root-menuitem">
-              <div className="layout-menuitem-root-text">{section.label}</div>
-              <ul>
-                {section.items.map((item, iIdx) => (
-                  <li key={iIdx}>
-                    {item.url ? (
-                      <a
-                        href={item.url}
-                        target={item.target || '_self'}
-                        rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-                        className="p-ripple"
-                      >
-                        <i className={classNames('layout-menuitem-icon', item.icon)}></i>
-                        <span className="layout-menuitem-text">{item.label}</span>
-                        {item.target === '_blank' && (
-                          <i className="pi pi-external-link layout-menuitem-external"></i>
-                        )}
-                        <Ripple />
-                      </a>
-                    ) : (
-                      <a
-                        onClick={() => onMenuItemClick(item)}
-                        className={classNames('p-ripple', { 'active-route': isActiveRoute(item) })}
-                      >
-                        <i className={classNames('layout-menuitem-icon', item.icon)}></i>
-                        <span className="layout-menuitem-text">{item.label}</span>
-                        <Ripple />
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </li>
           ))}
-        </ul>
+        </nav>
+
+        <div className="layout-topbar-end">
+          {resourceItems.map((item, idx) => (
+            <a
+              key={idx}
+              href={item.url}
+              target={item.target || '_self'}
+              rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+              className="layout-topbar-button"
+              title={item.label}
+            >
+              <i className={item.icon}></i>
+            </a>
+          ))}
+
+          {/* Mobile hamburger */}
+          <button
+            className="layout-topbar-mobile-button"
+            onClick={onMenuToggle}
+            aria-label="Toggle Menu"
+          >
+            <i className={classNames(mobileMenuActive ? 'pi pi-times' : 'pi pi-bars')}></i>
+          </button>
+        </div>
       </div>
 
-      {/* Overlay for mobile */}
-      {isMobile && sidebarActive && (
-        <div className="layout-mask" onClick={() => setSidebarActive(false)}></div>
+      {/* Mobile dropdown menu */}
+      {isMobile && mobileMenuActive && (
+        <>
+          <div className="layout-mobile-mask" onClick={() => setMobileMenuActive(false)}></div>
+          <div className="layout-mobile-menu" ref={menuRef}>
+            <div className="layout-mobile-menu-section">
+              <span className="layout-mobile-menu-label">Navigation</span>
+              {navItems.map((item, idx) => (
+                <a
+                  key={idx}
+                  onClick={() => onNavItemClick(item)}
+                  className={classNames('layout-mobile-menu-item p-ripple', {
+                    'active-route': isActiveRoute(item),
+                  })}
+                >
+                  <i className={item.icon}></i>
+                  <span>{item.label}</span>
+                  {item.badge && <Badge value={item.badge} severity="danger" />}
+                  <Ripple />
+                </a>
+              ))}
+            </div>
+            <div className="layout-mobile-menu-divider"></div>
+            <div className="layout-mobile-menu-section">
+              <span className="layout-mobile-menu-label">Resources</span>
+              {resourceItems.map((item, idx) => (
+                <a
+                  key={idx}
+                  href={item.url}
+                  target={item.target || '_self'}
+                  rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                  className="layout-mobile-menu-item p-ripple"
+                >
+                  <i className={item.icon}></i>
+                  <span>{item.label}</span>
+                  {item.target === '_blank' && (
+                    <i className="pi pi-external-link layout-mobile-menu-external"></i>
+                  )}
+                  <Ripple />
+                </a>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Main Content */}

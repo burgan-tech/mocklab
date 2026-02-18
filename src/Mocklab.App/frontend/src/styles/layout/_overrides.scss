@@ -34,12 +34,25 @@
   font-size: 0.95rem;
 }
 
+/* Card - ensure full width utilization */
+.card {
+  overflow: hidden;
+}
+
 /* Toolbar Polish */
 .card .p-toolbar {
   background: transparent;
   border: 1px solid var(--surface-border);
   border-radius: $borderRadius;
   padding: 0.75rem 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.card .p-toolbar .p-toolbar-group-start,
+.card .p-toolbar .p-toolbar-group-end {
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 /* DataTable Polish */
@@ -56,11 +69,17 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .card .p-datatable .p-datatable-tbody > tr > td {
   overflow-wrap: break-word;
   word-wrap: break-word;
+}
+
+/* Ensure scrollable datatable container takes full width */
+.card .p-datatable .p-datatable-wrapper {
+  overflow-x: auto;
 }
 
 /* Dialog Polish */
@@ -133,4 +152,11 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--surface-500, #999);
+}
+
+/* Paginator responsive */
+.p-paginator {
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: center;
 }

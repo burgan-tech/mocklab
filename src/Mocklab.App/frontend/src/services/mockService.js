@@ -145,6 +145,36 @@ class MockService {
 
     return await response.json();
   }
+
+  async resetSequence(id) {
+    const response = await fetch(`${apiConfig.adminPath}/${id}/sequence/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to reset sequence');
+    }
+
+    return await response.json();
+  }
+
+  async resetAllSequences() {
+    const response = await fetch(`${apiConfig.adminPath}/sequence/reset-all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to reset all sequences');
+    }
+
+    return await response.json();
+  }
 }
 
 export const mockService = new MockService();

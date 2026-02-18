@@ -6,21 +6,14 @@ using Mocklab.App.Models.Results;
 
 namespace Mocklab.App.Services;
 
-public class MockImportService : IMockImportService
+public class MockImportService(
+    MocklabDbContext dbContext,
+    IHttpClientFactory httpClientFactory,
+    ILogger<MockImportService> logger) : IMockImportService
 {
-    private readonly MocklabDbContext _dbContext;
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger<MockImportService> _logger;
-
-    public MockImportService(
-        MocklabDbContext dbContext,
-        IHttpClientFactory httpClientFactory,
-        ILogger<MockImportService> logger)
-    {
-        _dbContext = dbContext;
-        _httpClientFactory = httpClientFactory;
-        _logger = logger;
-    }
+    private readonly MocklabDbContext _dbContext = dbContext;
+    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly ILogger<MockImportService> _logger = logger;
 
     // ═══════════════════════════════════════════════════════════════════
     //  cURL Import

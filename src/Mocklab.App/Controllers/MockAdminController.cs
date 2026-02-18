@@ -9,33 +9,36 @@ namespace Mocklab.App.Controllers;
 
 [ApiController]
 [Route("_admin/mocks")]
-public class MockAdminController : ControllerBase
+public class MockAdminController(
+    MocklabDbContext dbContext,
+    ILogger<MockAdminController> logger,
+    IMockImportService importService,
+    ISequenceStateManager sequenceStateManager) : ControllerBase
 {
-    private readonly MocklabDbContext _dbContext;
-    private readonly ILogger<MockAdminController> _logger;
-    private readonly IMockImportService _importService;
-
-    public MockAdminController(
-        MocklabDbContext dbContext,
-        ILogger<MockAdminController> logger,
-        IMockImportService importService)
-    {
-        _dbContext = dbContext;
-        _logger = logger;
-        _importService = importService;
-    }
+    private readonly MocklabDbContext _dbContext = dbContext;
+    private readonly ILogger<MockAdminController> _logger = logger;
+    private readonly IMockImportService _importService = importService;
+    private readonly ISequenceStateManager _sequenceStateManager = sequenceStateManager;
 
     /// <summary>
-    /// List all mock responses
+    /// List all mock responses (includes rule count and sequence item count)
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetAllMocks([FromQuery] bool? isActive = null)
+    public async Task<IActionResult> GetAllMocks([FromQuery] bool? isActive = null, [FromQuery] int? collectionId = null)
     {
-        var query = _dbContext.MockResponses.AsQueryable();
+        var query = _dbContext.MockResponses
+            .Include(m => m.Rules)
+            .Include(m => m.SequenceItems)
+            .AsQueryable();
 
         if (isActive.HasValue)
         {
             query = query.Where(m => m.IsActive == isActive.Value);
+        }
+
+        if (collectionId.HasValue)
+        {
+            query = query.Where(m => m.CollectionId == collectionId.Value);
         }
 
         var mocks = await query.OrderByDescending(m => m.CreatedAt).ToListAsync();
@@ -43,12 +46,15 @@ public class MockAdminController : ControllerBase
     }
 
     /// <summary>
-    /// Get a specific mock response
+    /// Get a specific mock response with rules and sequence items
     /// </summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetMock(int id)
     {
-        var mock = await _dbContext.MockResponses.FindAsync(id);
+        var mock = await _dbContext.MockResponses
+            .Include(m => m.Rules.OrderBy(r => r.Priority))
+            .Include(m => m.SequenceItems.OrderBy(s => s.Order))
+            .FirstOrDefaultAsync(m => m.Id == id);
 
         if (mock == null)
         {
@@ -59,7 +65,7 @@ public class MockAdminController : ControllerBase
     }
 
     /// <summary>
-    /// Add a new mock response
+    /// Add a new mock response (with optional rules and sequence items)
     /// </summary>
     [HttpPost]
     public async Task<IActionResult> CreateMock([FromBody] MockResponse mockResponse)
@@ -77,18 +83,22 @@ public class MockAdminController : ControllerBase
     }
 
     /// <summary>
-    /// Update mock response
+    /// Update mock response (with rules and sequence items — delete+recreate strategy)
     /// </summary>
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateMock(int id, [FromBody] MockResponse mockResponse)
     {
-        var existingMock = await _dbContext.MockResponses.FindAsync(id);
+        var existingMock = await _dbContext.MockResponses
+            .Include(m => m.Rules)
+            .Include(m => m.SequenceItems)
+            .FirstOrDefaultAsync(m => m.Id == id);
 
         if (existingMock == null)
         {
             return NotFound(new { Error = "Mock response not found" });
         }
 
+        // Update basic fields
         existingMock.HttpMethod = mockResponse.HttpMethod;
         existingMock.Route = mockResponse.Route;
         existingMock.QueryString = mockResponse.QueryString;
@@ -97,12 +107,40 @@ public class MockAdminController : ControllerBase
         existingMock.ResponseBody = mockResponse.ResponseBody;
         existingMock.ContentType = mockResponse.ContentType;
         existingMock.Description = mockResponse.Description;
+        existingMock.DelayMs = mockResponse.DelayMs;
+        existingMock.CollectionId = mockResponse.CollectionId;
+        existingMock.IsSequential = mockResponse.IsSequential;
         existingMock.IsActive = mockResponse.IsActive;
         existingMock.UpdatedAt = DateTime.UtcNow;
 
+        // Update rules: delete existing and recreate
+        if (mockResponse.Rules != null)
+        {
+            _dbContext.MockResponseRules.RemoveRange(existingMock.Rules);
+            foreach (var rule in mockResponse.Rules)
+            {
+                rule.Id = 0; // Reset ID for new insertion
+                rule.MockResponseId = id;
+                existingMock.Rules.Add(rule);
+            }
+        }
+
+        // Update sequence items: delete existing and recreate
+        if (mockResponse.SequenceItems != null)
+        {
+            _dbContext.MockResponseSequenceItems.RemoveRange(existingMock.SequenceItems);
+            foreach (var item in mockResponse.SequenceItems)
+            {
+                item.Id = 0; // Reset ID for new insertion
+                item.MockResponseId = id;
+                existingMock.SequenceItems.Add(item);
+            }
+        }
+
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Mock response updated: Id={Id}", id);
+        _logger.LogInformation("Mock response updated: Id={Id}, Rules={RuleCount}, SequenceItems={SeqCount}",
+            id, existingMock.Rules.Count, existingMock.SequenceItems.Count);
 
         return Ok(existingMock);
     }
@@ -122,6 +160,9 @@ public class MockAdminController : ControllerBase
 
         _dbContext.MockResponses.Remove(mock);
         await _dbContext.SaveChangesAsync();
+
+        // Clean up sequence state
+        _sequenceStateManager.Reset(id);
 
         _logger.LogInformation("Mock response deleted: Id={Id}", id);
 
@@ -158,6 +199,28 @@ public class MockAdminController : ControllerBase
     }
 
     /// <summary>
+    /// Reset sequence counter for a specific mock
+    /// </summary>
+    [HttpPost("{id}/sequence/reset")]
+    public IActionResult ResetSequence(int id)
+    {
+        _sequenceStateManager.Reset(id);
+        _logger.LogInformation("Sequence reset for Mock Id={Id}", id);
+        return Ok(new { Message = $"Sequence reset for mock {id}" });
+    }
+
+    /// <summary>
+    /// Reset all sequence counters
+    /// </summary>
+    [HttpPost("sequence/reset-all")]
+    public IActionResult ResetAllSequences()
+    {
+        _sequenceStateManager.ResetAll();
+        _logger.LogInformation("All sequences reset");
+        return Ok(new { Message = "All sequences have been reset" });
+    }
+
+    /// <summary>
     /// Clear all mocks
     /// </summary>
     [HttpDelete("clear")]
@@ -166,6 +229,9 @@ public class MockAdminController : ControllerBase
         var count = await _dbContext.MockResponses.CountAsync();
         _dbContext.MockResponses.RemoveRange(_dbContext.MockResponses);
         await _dbContext.SaveChangesAsync();
+
+        // Reset all sequence state
+        _sequenceStateManager.ResetAll();
 
         _logger.LogWarning("All mock responses deleted. Deleted count: {Count}", count);
 
