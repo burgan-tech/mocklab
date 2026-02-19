@@ -6,9 +6,9 @@ namespace Mocklab.App.Extensions;
 /// <summary>
 /// Middleware to serve embedded frontend static files
 /// </summary>
-public class MocklabStaticFilesMiddleware
+public class MocklabStaticFilesMiddleware(RequestDelegate next)
 {
-    private readonly RequestDelegate _next;
+    private readonly RequestDelegate _next = next;
     private static readonly Dictionary<string, string> ContentTypeMap = new()
     {
         { ".html", "text/html" },
@@ -27,11 +27,6 @@ public class MocklabStaticFilesMiddleware
         { ".eot", "application/vnd.ms-fontobject" }
     };
 
-    public MocklabStaticFilesMiddleware(RequestDelegate next)
-    {
-        _next = next;
-    }
-
     public async Task InvokeAsync(HttpContext context)
     {
         var path = context.Request.Path.Value ?? "";
@@ -39,8 +34,10 @@ public class MocklabStaticFilesMiddleware
         // Only handle requests starting with /_admin (but not /_admin/mocks API endpoints)
         if (path.StartsWith("/_admin", StringComparison.OrdinalIgnoreCase))
         {
-            // Skip API endpoints (/_admin/mocks/*)
-            if (path.StartsWith("/_admin/mocks", StringComparison.OrdinalIgnoreCase))
+            // Skip API endpoints (/_admin/mocks/*, /_admin/logs/*, /_admin/collections/*)
+            if (path.StartsWith("/_admin/mocks", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/_admin/logs", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/_admin/collections", StringComparison.OrdinalIgnoreCase))
             {
                 await _next(context);
                 return;
@@ -86,7 +83,7 @@ public class MocklabStaticFilesMiddleware
                 return false;
 
             using var stream = assembly.GetManifestResourceStream(actualResourceName);
-            
+
             if (stream == null)
                 return false;
 
@@ -125,7 +122,7 @@ public class MocklabStaticFilesMiddleware
         if (indexResourceName != null)
         {
             using var stream = assembly.GetManifestResourceStream(indexResourceName);
-            
+
             if (stream != null)
             {
                 context.Response.ContentType = "text/html";

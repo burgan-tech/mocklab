@@ -8,14 +8,9 @@ namespace Mocklab.App.Extensions;
 /// When RoutePrefix is set (e.g. "mock"), the catch-all route becomes "mock/{**catchAll}"
 /// instead of "{**catchAll}", so only requests under that prefix are intercepted.
 /// </summary>
-public class MocklabRoutePrefixConvention : IApplicationModelConvention
+public class MocklabRoutePrefixConvention(string routePrefix) : IApplicationModelConvention
 {
-    private readonly string _routePrefix;
-
-    public MocklabRoutePrefixConvention(string routePrefix)
-    {
-        _routePrefix = routePrefix.Trim('/');
-    }
+    private readonly string _routePrefix = routePrefix.Trim('/');
 
     public void Apply(ApplicationModel application)
     {

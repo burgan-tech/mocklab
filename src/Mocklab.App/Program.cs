@@ -37,13 +37,20 @@ builder.Services.AddHttpClient();
 
 // Register business services
 builder.Services.AddScoped<IMockImportService, MockImportService>();
+builder.Services.AddSingleton<ITemplateProcessor, TemplateProcessor>();
+builder.Services.AddSingleton<IRuleEvaluator, RuleEvaluator>();
+builder.Services.AddSingleton<ISequenceStateManager, SequenceStateManager>();
 
 var app = builder.Build();
 
 // Enable OpenAPI endpoint
 app.MapOpenApi();
 
-app.UseHttpsRedirection();
+// Only use HTTPS redirection in production
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Enable CORS
 app.UseCors("AllowFrontend");

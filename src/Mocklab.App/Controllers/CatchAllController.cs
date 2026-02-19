@@ -1,28 +1,30 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Mocklab.App.Data;
 using Mocklab.App.Extensions;
+using Mocklab.App.Models;
+using Mocklab.App.Services;
 
 namespace Mocklab.App.Controllers;
 
 [ApiController]
-public class CatchAllController : ControllerBase
+public class CatchAllController(
+    ILogger<CatchAllController> logger,
+    MocklabDbContext dbContext,
+    IOptions<MocklabOptions> options,
+    ITemplateProcessor templateProcessor,
+    IRuleEvaluator ruleEvaluator,
+    ISequenceStateManager sequenceStateManager) : ControllerBase
 {
-    private readonly ILogger<CatchAllController> _logger;
-    private readonly MocklabDbContext _dbContext;
-    private readonly MocklabOptions _options;
-
-    public CatchAllController(
-        ILogger<CatchAllController> logger, 
-        MocklabDbContext dbContext,
-        IOptions<MocklabOptions> options)
-    {
-        _logger = logger;
-        _dbContext = dbContext;
-        _options = options.Value;
-    }
+    private readonly ILogger<CatchAllController> _logger = logger;
+    private readonly MocklabDbContext _dbContext = dbContext;
+    private readonly MocklabOptions _options = options.Value;
+    private readonly ITemplateProcessor _templateProcessor = templateProcessor;
+    private readonly IRuleEvaluator _ruleEvaluator = ruleEvaluator;
+    private readonly ISequenceStateManager _sequenceStateManager = sequenceStateManager;
 
     // Catches all routes except _admin - regardless of HTTP method
     [Route("{**catchAll}")]
@@ -39,8 +41,8 @@ public class CatchAllController : ControllerBase
         var requestMethod = Request.Method;
 
         // Strip route prefix to get the actual path for matching
-        var prefix = string.IsNullOrEmpty(_options.RoutePrefix) 
-            ? "" 
+        var prefix = string.IsNullOrEmpty(_options.RoutePrefix)
+            ? ""
             : "/" + _options.RoutePrefix.Trim('/');
         var requestPath = !string.IsNullOrEmpty(prefix) && fullPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
             ? fullPath[prefix.Length..]
@@ -71,12 +73,14 @@ public class CatchAllController : ControllerBase
             queryString
         );
 
-        return await FindPreparedMockResponse(requestMethod, requestPath, queryString, requestBody);
-    }
-    private async Task<IActionResult> FindPreparedMockResponse(string requestMethod, string requestPath, string queryString, string? requestBody)
-    {
-        // Find matching mock response from database
+        // Start timing the request
+        var stopwatch = Stopwatch.StartNew();
+
+        // Find matching mock response from database (with Rules and SequenceItems)
         var mockResponse = await FindMatchingMockResponse(requestMethod, requestPath, queryString, requestBody);
+
+        IActionResult result;
+        int responseStatusCode;
 
         if (mockResponse != null)
         {
@@ -86,44 +90,128 @@ public class CatchAllController : ControllerBase
                 mockResponse.Description
             );
 
-            // Set Content-Type header
-            Response.ContentType = mockResponse.ContentType;
+            // Determine response values — defaults from mock
+            var responseBody = mockResponse.ResponseBody;
+            var contentType = mockResponse.ContentType;
+            var statusCode = mockResponse.StatusCode;
+            var delayMs = mockResponse.DelayMs;
 
-            object? response = null;
-            try
+            // Step 1: Check for sequential mode
+            if (mockResponse.IsSequential && mockResponse.SequenceItems.Count > 0)
             {
-                if (mockResponse.ContentType == "application/json")
+                var orderedItems = mockResponse.SequenceItems.OrderBy(s => s.Order).ToList();
+                var index = _sequenceStateManager.GetNextIndex(mockResponse.Id, orderedItems.Count);
+                var sequenceItem = orderedItems[index];
+
+                _logger.LogInformation(
+                    "Sequential response: Mock Id={MockId}, Step {Index}/{Total}",
+                    mockResponse.Id, index + 1, orderedItems.Count);
+
+                statusCode = sequenceItem.StatusCode;
+                responseBody = sequenceItem.ResponseBody;
+                contentType = sequenceItem.ContentType;
+                // Sequence item delay overrides mock-level delay
+                if (sequenceItem.DelayMs.HasValue)
+                    delayMs = sequenceItem.DelayMs;
+            }
+            // Step 2: Check for matching rules (only if NOT sequential)
+            else if (mockResponse.Rules.Count > 0)
+            {
+                var matchedRule = _ruleEvaluator.Evaluate(mockResponse.Rules, Request, requestBody);
+                if (matchedRule != null)
                 {
-                    response = JsonSerializer.Deserialize<object>(mockResponse.ResponseBody);
-                }
-                else
-                {
-                    response = mockResponse.ResponseBody;
+                    _logger.LogInformation(
+                        "Rule matched: Id={RuleId} for Mock Id={MockId}",
+                        matchedRule.Id, mockResponse.Id);
+
+                    statusCode = matchedRule.StatusCode;
+                    responseBody = matchedRule.ResponseBody;
+                    contentType = matchedRule.ContentType;
                 }
             }
-            catch (Exception ex)
+
+            // Step 3: Apply response delay
+            if (delayMs.HasValue && delayMs.Value > 0)
             {
-                _logger.LogError(ex, "Error deserializing mock response: {ResponseBody}", mockResponse.ResponseBody);
+                _logger.LogInformation("Applying delay: {DelayMs}ms for Mock Id={Id}", delayMs.Value, mockResponse.Id);
+                await Task.Delay(delayMs.Value);
             }
-            return StatusCode(mockResponse.StatusCode, response);
+
+            // Step 4: Process template variables in response body
+            var processedBody = _templateProcessor.ProcessTemplate(responseBody, Request);
+
+            // Step 5: Return response using ContentResult to avoid deserialize/re-serialize issues
+            // Previously JsonSerializer.Deserialize<object> caused 204 No Content bug
+            responseStatusCode = statusCode;
+            result = new ContentResult
+            {
+                StatusCode = statusCode,
+                Content = processedBody,
+                ContentType = contentType
+            };
+        }
+        else
+        {
+            // No match found
+            _logger.LogWarning("Mock response not found: {Method} {Path}", requestMethod, requestPath);
+            responseStatusCode = 404;
+            result = NotFound(new
+            {
+                Error = "Mock response not found",
+                Request = new
+                {
+                    Method = requestMethod,
+                    Path = requestPath,
+                    QueryString = queryString,
+                    Body = requestBody
+                },
+                Message = "No mock response found for this request. Please add a mock response to the database.",
+                Timestamp = DateTime.UtcNow
+            });
         }
 
-        // No match found
-        _logger.LogWarning("Mock response not found: {Method} {Path}", requestMethod, requestPath);
+        stopwatch.Stop();
 
-        return NotFound(new
+        // Log the request
+        await LogRequestAsync(requestMethod, requestPath, queryString, requestBody, mockResponse, responseStatusCode, stopwatch.ElapsedMilliseconds);
+
+        return result;
+    }
+
+    private async Task LogRequestAsync(
+        string method, string path, string? queryString, string? requestBody,
+        Models.MockResponse? matchedMock, int responseStatusCode, long responseTimeMs)
+    {
+        try
         {
-            Error = "Mock response not found",
-            Request = new
+            var requestLog = new RequestLog
             {
-                Method = requestMethod,
-                Path = requestPath,
-                QueryString = queryString,
-                Body = requestBody
-            },
-            Message = "No mock response found for this request. Please add a mock response to the database.",
-            Timestamp = DateTime.UtcNow
-        });
+                HttpMethod = method,
+                Route = path,
+                QueryString = string.IsNullOrEmpty(queryString) ? null : queryString,
+                RequestBody = requestBody,
+                RequestHeaders = SerializeHeaders(Request.Headers),
+                MatchedMockId = matchedMock?.Id,
+                MatchedMockDescription = matchedMock?.Description,
+                ResponseStatusCode = responseStatusCode,
+                IsMatched = matchedMock != null,
+                Timestamp = DateTime.UtcNow,
+                ResponseTimeMs = responseTimeMs
+            };
+
+            _dbContext.RequestLogs.Add(requestLog);
+            await _dbContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log request: {Method} {Path}", method, path);
+        }
+    }
+
+    private static string SerializeHeaders(IHeaderDictionary headers)
+    {
+        var dict = headers.ToDictionary(h => h.Key, h => h.Value.ToString());
+        return JsonSerializer.Serialize(dict);
     }
 
     private async Task<Models.MockResponse?> FindMatchingMockResponse(
@@ -132,7 +220,10 @@ public class CatchAllController : ControllerBase
         string queryString,
         string? requestBody)
     {
-        var query = BuildMockQuery(method, queryString, requestBody);
+        var query = BuildMockQuery(method, queryString, requestBody)
+            .Include(m => m.Rules)
+            .Include(m => m.SequenceItems);
+
         //TODO: Consider use firstordefault instead of tolistasync, or return all matches instead of just the first one
         // First, try exact route match
         var exactMatch = await query.Where(m => m.Route == path).ToListAsync();
@@ -156,12 +247,16 @@ public class CatchAllController : ControllerBase
 
         if (!string.IsNullOrEmpty(queryString))
         {
-            query = query.Where(m => m.QueryString == queryString);
+            // Match mocks that either have no queryString filter (null/empty = match any query)
+            // or have a specific queryString that matches the incoming request
+            query = query.Where(m => string.IsNullOrEmpty(m.QueryString) || m.QueryString == queryString);
         }
 
         if (!string.IsNullOrEmpty(requestBody))
         {
-            query = query.Where(m => m.RequestBody == requestBody);
+            // Match mocks that either have no requestBody filter (null/empty = match any body)
+            // or have a specific requestBody that matches the incoming request
+            query = query.Where(m => string.IsNullOrEmpty(m.RequestBody) || m.RequestBody == requestBody);
         }
 
         return query;

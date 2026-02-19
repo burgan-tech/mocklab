@@ -17,7 +17,9 @@ mocklab/
     ├── Program.cs
     ├── Controllers/
     │   ├── CatchAllController.cs           # Catch-all mock handler
-    │   └── MockAdminController.cs          # Admin CRUD API
+    │   ├── MockAdminController.cs          # Admin CRUD API
+    │   ├── CollectionAdminController.cs    # Collection management API
+    │   └── RequestLogAdminController.cs    # Request log API
     ├── Extensions/
     │   ├── MocklabOptions.cs               # Configuration options
     │   ├── MocklabServiceExtensions.cs     # AddMocklab()
@@ -28,13 +30,26 @@ mocklab/
     │   ├── MocklabDbContext.cs
     │   └── Migrations/
     ├── Models/
+    │   ├── MockResponse.cs                 # Mock response entity
+    │   ├── MockCollection.cs               # Collection entity
+    │   ├── MockResponseRule.cs             # Conditional rule entity
+    │   ├── MockResponseSequenceItem.cs     # Sequence step entity
+    │   └── RequestLog.cs                   # Request log entity
     ├── Services/
     │   ├── IMockImportService.cs
-    │   └── MockImportService.cs            # cURL & OpenAPI import
+    │   ├── MockImportService.cs            # cURL & OpenAPI import
+    │   ├── TemplateProcessor.cs            # Dynamic template variables
+    │   ├── RuleEvaluator.cs                # Conditional rule engine
+    │   └── SequenceStateManager.cs         # In-memory sequence state
     └── frontend/                           # React admin UI
         ├── package.json
         ├── vite.config.js
         └── src/
+            ├── pages/
+            │   ├── MockManagementPage.jsx  # Mock CRUD + Rules + Sequences
+            │   ├── CollectionsPage.jsx     # Collection management
+            │   └── RequestLogsPage.jsx     # Request log viewer
+            └── services/
 ```
 
 ## Running Locally
