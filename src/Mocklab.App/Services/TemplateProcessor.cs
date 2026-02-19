@@ -58,7 +58,7 @@ public partial class TemplateProcessor : ITemplateProcessor
         result = TimestampRegex().Replace(result, _ => DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
         result = IsoTimestampRegex().Replace(result, _ => DateTime.UtcNow.ToString("O"));
         result = RandomIntRegex().Replace(result, _ => Random.Shared.Next(1, 1000000).ToString());
-        result = RandomFloatRegex().Replace(result, _ => (Random.Shared.NextDouble() * 1000).ToString("F2"));
+        result = RandomFloatRegex().Replace(result, _ => (Random.Shared.NextDouble() * 1000).ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
         result = RandomBoolRegex().Replace(result, _ => Random.Shared.Next(2) == 1 ? "true" : "false");
         result = RandomNameRegex().Replace(result, _ => SampleNames[Random.Shared.Next(SampleNames.Length)]);
         result = RandomEmailRegex().Replace(result, _ =>

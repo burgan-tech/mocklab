@@ -15,6 +15,12 @@ app.UseMocklab();
 - Import mocks from cURL commands or OpenAPI/Swagger specs
 - Configurable route prefix to scope mock endpoints
 - Schema isolation when sharing the host database
+- **Collections** — Group and organize mocks with color-coded categories, import/export
+- **Conditional Rules** — Return different responses based on headers, query params, body, method (regex supported)
+- **Sequential Responses** — Stateful mock sequences for retry, rate-limit, and progress testing
+- **Dynamic Templates** — `{{$randomUUID}}`, `{{$randomName}}`, `{{$request.header.X}}` and more
+- **Response Delays** — Simulate latency at mock or sequence-step level
+- **Request Logging** — Monitor all incoming requests with match status and response times
 
 ## Quick Start
 

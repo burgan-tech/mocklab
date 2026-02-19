@@ -140,28 +140,15 @@ public class CatchAllController(
             // Step 4: Process template variables in response body
             var processedBody = _templateProcessor.ProcessTemplate(responseBody, Request);
 
-            // Step 5: Set Content-Type and return response
-            Response.ContentType = contentType;
-
-            object? response = null;
-            try
-            {
-                if (contentType == "application/json")
-                {
-                    response = JsonSerializer.Deserialize<object>(processedBody);
-                }
-                else
-                {
-                    response = processedBody;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deserializing mock response: {ResponseBody}", processedBody);
-            }
-
+            // Step 5: Return response using ContentResult to avoid deserialize/re-serialize issues
+            // Previously JsonSerializer.Deserialize<object> caused 204 No Content bug
             responseStatusCode = statusCode;
-            result = StatusCode(statusCode, response);
+            result = new ContentResult
+            {
+                StatusCode = statusCode,
+                Content = processedBody,
+                ContentType = contentType
+            };
         }
         else
         {
@@ -260,12 +247,16 @@ public class CatchAllController(
 
         if (!string.IsNullOrEmpty(queryString))
         {
-            query = query.Where(m => m.QueryString == queryString);
+            // Match mocks that either have no queryString filter (null/empty = match any query)
+            // or have a specific queryString that matches the incoming request
+            query = query.Where(m => string.IsNullOrEmpty(m.QueryString) || m.QueryString == queryString);
         }
 
         if (!string.IsNullOrEmpty(requestBody))
         {
-            query = query.Where(m => m.RequestBody == requestBody);
+            // Match mocks that either have no requestBody filter (null/empty = match any body)
+            // or have a specific requestBody that matches the incoming request
+            query = query.Where(m => string.IsNullOrEmpty(m.RequestBody) || m.RequestBody == requestBody);
         }
 
         return query;
