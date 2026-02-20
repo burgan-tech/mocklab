@@ -34,10 +34,11 @@ public class MocklabStaticFilesMiddleware(RequestDelegate next)
         // Only handle requests starting with /_admin (but not /_admin/mocks API endpoints)
         if (path.StartsWith("/_admin", StringComparison.OrdinalIgnoreCase))
         {
-            // Skip API endpoints (/_admin/mocks/*, /_admin/logs/*, /_admin/collections/*)
+            // Skip API endpoints (/_admin/mocks/*, /_admin/logs/*, /_admin/collections/*, /_admin/folders/*)
             if (path.StartsWith("/_admin/mocks", StringComparison.OrdinalIgnoreCase) ||
                 path.StartsWith("/_admin/logs", StringComparison.OrdinalIgnoreCase) ||
-                path.StartsWith("/_admin/collections", StringComparison.OrdinalIgnoreCase))
+                path.StartsWith("/_admin/collections", StringComparison.OrdinalIgnoreCase) || 
+                path.StartsWith("/_admin/folders", StringComparison.OrdinalIgnoreCase))
             {
                 await _next(context);
                 return;

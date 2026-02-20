@@ -24,7 +24,7 @@ public class MockAdminController(
     /// List all mock responses (includes rule count and sequence item count)
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetAllMocks([FromQuery] bool? isActive = null, [FromQuery] int? collectionId = null)
+    public async Task<IActionResult> GetAllMocks([FromQuery] bool? isActive = null, [FromQuery] int? collectionId = null, [FromQuery] int? folderId = null)
     {
         var query = _dbContext.MockResponses
             .Include(m => m.Rules)
@@ -39,6 +39,11 @@ public class MockAdminController(
         if (collectionId.HasValue)
         {
             query = query.Where(m => m.CollectionId == collectionId.Value);
+        }
+
+        if (folderId.HasValue)
+        {
+            query = query.Where(m => m.FolderId == folderId.Value);
         }
 
         var mocks = await query.OrderByDescending(m => m.CreatedAt).ToListAsync();
@@ -70,6 +75,18 @@ public class MockAdminController(
     [HttpPost]
     public async Task<IActionResult> CreateMock([FromBody] MockResponse mockResponse)
     {
+        if (mockResponse.FolderId.HasValue && mockResponse.CollectionId.HasValue)
+        {
+            var folder = await _dbContext.MockFolders
+                .FirstOrDefaultAsync(f => f.Id == mockResponse.FolderId.Value && f.CollectionId == mockResponse.CollectionId.Value);
+            if (folder == null)
+                return BadRequest(new { Error = "Folder not found or does not belong to the selected collection" });
+        }
+        else if (mockResponse.FolderId.HasValue)
+        {
+            return BadRequest(new { Error = "Folder can only be set when a collection is selected" });
+        }
+
         mockResponse.CreatedAt = DateTime.UtcNow;
         mockResponse.UpdatedAt = null;
 
@@ -109,6 +126,21 @@ public class MockAdminController(
         existingMock.Description = mockResponse.Description;
         existingMock.DelayMs = mockResponse.DelayMs;
         existingMock.CollectionId = mockResponse.CollectionId;
+        if (mockResponse.FolderId.HasValue)
+        {
+            if (!mockResponse.CollectionId.HasValue)
+                return BadRequest(new { Error = "Folder can only be set when a collection is selected" });
+            var folder = await _dbContext.MockFolders
+                .FirstOrDefaultAsync(f => f.Id == mockResponse.FolderId.Value && f.CollectionId == mockResponse.CollectionId.Value);
+            if (folder == null)
+                return BadRequest(new { Error = "Folder not found or does not belong to the selected collection" });
+            existingMock.FolderId = mockResponse.FolderId;
+        }
+        else
+        {
+            existingMock.FolderId = null;
+        }
+
         existingMock.IsSequential = mockResponse.IsSequential;
         existingMock.IsActive = mockResponse.IsActive;
         existingMock.UpdatedAt = DateTime.UtcNow;
@@ -218,6 +250,52 @@ public class MockAdminController(
         _sequenceStateManager.ResetAll();
         _logger.LogInformation("All sequences reset");
         return Ok(new { Message = "All sequences have been reset" });
+    }
+
+    /// <summary>
+    /// Bulk update collection and/or folder for multiple mocks
+    /// </summary>
+    [HttpPost("bulk-update")]
+    public async Task<IActionResult> BulkUpdateMocks([FromBody] BulkUpdateMocksRequest request)
+    {
+        if (request.MockIds == null || request.MockIds.Count == 0)
+            return BadRequest(new { Error = "MockIds is required and cannot be empty" });
+
+        if (request.FolderId.HasValue && !request.CollectionId.HasValue)
+            return BadRequest(new { Error = "CollectionId is required when FolderId is set" });
+
+        if (request.FolderId.HasValue && request.CollectionId.HasValue)
+        {
+            var folder = await _dbContext.MockFolders
+                .FirstOrDefaultAsync(f => f.Id == request.FolderId.Value && f.CollectionId == request.CollectionId.Value);
+            if (folder == null)
+                return BadRequest(new { Error = "Folder not found or does not belong to the selected collection" });
+        }
+
+        var mocks = await _dbContext.MockResponses
+            .Where(m => request.MockIds.Contains(m.Id))
+            .ToListAsync();
+
+        foreach (var mock in mocks)
+        {
+            if (request.CollectionId.HasValue)
+            {
+                mock.CollectionId = request.CollectionId.Value;
+                mock.FolderId = request.FolderId;
+            }
+            else
+            {
+                mock.CollectionId = null;
+                mock.FolderId = null;
+            }
+            mock.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("Bulk updated {Count} mock(s)", mocks.Count);
+
+        return Ok(new { UpdatedCount = mocks.Count });
     }
 
     /// <summary>

@@ -56,6 +56,11 @@ public class MockResponse
     public int? CollectionId { get; set; }
 
     /// <summary>
+    /// Optional folder within the collection (null = uncategorized / root)
+    /// </summary>
+    public int? FolderId { get; set; }
+
+    /// <summary>
     /// When true, this mock cycles through sequence items instead of returning a static response
     /// </summary>
     public bool IsSequential { get; set; } = false;

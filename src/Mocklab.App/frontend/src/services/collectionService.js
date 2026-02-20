@@ -1,96 +1,107 @@
-import apiConfig from '../config/apiConfig';
+import apiConfig, { apiUrl, parseErrorResponse } from '../config/apiConfig';
 
 class CollectionService {
-  async getAllCollections() {
-    const response = await fetch(apiConfig.adminCollectionsPath, {
+  async getAllCollections(includeFolders = false) {
+    const path = includeFolders ? `${apiConfig.adminCollectionsPath}?includeFolders=true` : apiConfig.adminCollectionsPath;
+    const response = await fetch(apiUrl(path), {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch collections');
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
     }
 
     return await response.json();
   }
 
   async getCollection(id) {
-    const response = await fetch(`${apiConfig.adminCollectionsPath}/${id}`, {
+    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${id}`), {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch collection');
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
     }
 
     return await response.json();
   }
 
   async createCollection(data) {
-    const response = await fetch(apiConfig.adminCollectionsPath, {
+    const response = await fetch(apiUrl(apiConfig.adminCollectionsPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create collection');
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
     }
 
     return await response.json();
   }
 
   async updateCollection(id, data) {
-    const response = await fetch(`${apiConfig.adminCollectionsPath}/${id}`, {
+    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${id}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to update collection');
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
     }
 
     return await response.json();
   }
 
-  async deleteCollection(id) {
-    const response = await fetch(`${apiConfig.adminCollectionsPath}/${id}`, {
+  async deleteCollection(id, deleteMocks = false) {
+    const path = deleteMocks ? `${apiConfig.adminCollectionsPath}/${id}?deleteMocks=true` : `${apiConfig.adminCollectionsPath}/${id}`;
+    const response = await fetch(apiUrl(path), {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to delete collection');
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
     }
 
-    return response.status === 204 ? null : await response.json();
+    if (response.status === 204) return null;
+    const ct = response.headers.get('content-type');
+    if (ct && ct.includes('application/json')) return await response.json();
+    return null;
   }
 
   async exportCollection(id) {
-    const response = await fetch(`${apiConfig.adminCollectionsPath}/${id}/export`, {
+    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${id}/export`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to export collection');
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
     }
 
     return await response.json();
   }
 
   async importCollection(importData) {
-    const response = await fetch(`${apiConfig.adminCollectionsPath}/import`, {
+    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/import`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(importData),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Failed to import collection');
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
     }
 
     return await response.json();
