@@ -32,6 +32,7 @@ public class MocklabDbContext : DbContext
     public DbSet<MockResponse> MockResponses { get; set; }
     public DbSet<RequestLog> RequestLogs { get; set; }
     public DbSet<MockCollection> MockCollections { get; set; }
+    public DbSet<MockFolder> MockFolders { get; set; }
     public DbSet<MockResponseRule> MockResponseRules { get; set; }
     public DbSet<MockResponseSequenceItem> MockResponseSequenceItems { get; set; }
 
@@ -63,6 +64,32 @@ public class MocklabDbContext : DbContext
                 .HasForeignKey(m => m.CollectionId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
+
+        // Configure MockFolder entity (folders within a collection)
+        modelBuilder.Entity<MockFolder>(entity =>
+        {
+            entity.ToTable("MockFolders", _schemaName);
+
+            entity.HasIndex(f => f.CollectionId)
+                .HasDatabaseName("IX_MockFolders_CollectionId");
+
+            entity.HasOne(f => f.Collection)
+                .WithMany(c => c.Folders)
+                .HasForeignKey(f => f.CollectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(f => f.ParentFolder)
+                .WithMany(f => f.Children)
+                .HasForeignKey(f => f.ParentFolderId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // MockResponse -> MockFolder (optional; set null when folder is deleted)
+        modelBuilder.Entity<MockResponse>()
+            .HasOne<MockFolder>()
+            .WithMany(f => f.MockResponses)
+            .HasForeignKey(m => m.FolderId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Configure RequestLog entity
         modelBuilder.Entity<RequestLog>(entity =>

@@ -8,13 +8,14 @@ import { InputTextarea } from 'primereact/inputtextarea';
 import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
-import { ColorPicker } from 'primereact/colorpicker';
 import { FileUpload } from 'primereact/fileupload';
 import { Message } from 'primereact/message';
+import { Dropdown } from 'primereact/dropdown';
+import { Checkbox } from 'primereact/checkbox';
 import { IconField } from 'primereact/iconfield';
 import { InputIcon } from 'primereact/inputicon';
-import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { collectionService } from '../services/collectionService';
+import { mockService } from '../services/mockService';
 
 export default function CollectionsPage() {
   const [collections, setCollections] = useState([]);
@@ -25,23 +26,40 @@ export default function CollectionsPage() {
   const [importDialog, setImportDialog] = useState(false);
   const [importJson, setImportJson] = useState('');
   const [importLoading, setImportLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [deleteCollectionDialog, setDeleteCollectionDialog] = useState(false);
+  const [deleteCollectionId, setDeleteCollectionId] = useState(null);
+  const [deleteCollectionName, setDeleteCollectionName] = useState('');
+  const [deleteCollectionMockCount, setDeleteCollectionMockCount] = useState(0);
+  const [deleteCollectionMockIds, setDeleteCollectionMockIds] = useState([]);
+  const [deleteCollectionMoveToCollectionId, setDeleteCollectionMoveToCollectionId] = useState(null);
+  const [deleteCollectionMoveToFolderId, setDeleteCollectionMoveToFolderId] = useState(null);
+  const [deleteCollectionAlsoDeleteMocks, setDeleteCollectionAlsoDeleteMocks] = useState(false);
+  const [deleteCollectionLoading, setDeleteCollectionLoading] = useState(false);
   const toast = useRef(null);
+
+  const COLOR_PALETTE = [
+    '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+    '#f43f5e', '#ef4444', '#f97316', '#eab308', '#84cc16',
+    '#22c55e', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6',
+    '#64748b', '#78716c', '#000000'
+  ];
 
   const emptyCollection = {
     name: '',
     description: '',
-    color: '6366f1'
+    color: ''
   };
 
   useEffect(() => {
     loadCollections();
   }, []);
 
-  const loadCollections = async () => {
+  const loadCollections = async (includeFolders = true) => {
     setLoading(true);
     try {
-      const data = await collectionService.getAllCollections();
+      const data = await collectionService.getAllCollections(includeFolders);
       setCollections(data);
     } catch (error) {
       toast.current.show({
@@ -76,10 +94,13 @@ export default function CollectionsPage() {
       return;
     }
 
+    setSaveLoading(true);
     try {
+      const hexColor = collection.color && (collection.color.startsWith('#') ? collection.color : '#' + collection.color);
       const data = {
-        ...collection,
-        color: collection.color ? `#${collection.color.replace('#', '')}` : null
+        name: collection.name.trim(),
+        description: collection.description?.trim() || null,
+        color: hexColor || null
       };
 
       if (isEditMode) {
@@ -95,31 +116,53 @@ export default function CollectionsPage() {
       loadCollections();
     } catch (error) {
       toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to save collection: ' + error.message, life: 3000 });
+    } finally {
+      setSaveLoading(false);
     }
   };
 
   const editCollection = (col) => {
-    setCollection({ ...col, color: col.color ? col.color.replace('#', '') : '6366f1' });
+    setCollection({ ...col, color: col.color ?? '' });
     setIsEditMode(true);
     setCollectionDialog(true);
   };
 
-  const deleteCollection = (col) => {
-    confirmDialog({
-      message: `Are you sure you want to delete the collection "${col.name}"? Mocks in this collection will NOT be deleted.`,
-      header: 'Delete Confirmation',
-      icon: 'pi pi-exclamation-triangle',
-      acceptClassName: 'p-button-danger',
-      accept: async () => {
-        try {
-          await collectionService.deleteCollection(col.id);
-          toast.current.show({ severity: 'success', summary: 'Success', detail: 'Collection deleted successfully', life: 3000 });
-          loadCollections();
-        } catch (error) {
-          toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to delete collection: ' + error.message, life: 3000 });
-        }
+  const openDeleteCollectionDialog = async (col) => {
+    setDeleteCollectionId(col.id);
+    setDeleteCollectionName(col.name);
+    setDeleteCollectionMockCount(col.mockCount ?? 0);
+    setDeleteCollectionMoveToCollectionId(null);
+    setDeleteCollectionMoveToFolderId(null);
+    setDeleteCollectionAlsoDeleteMocks(false);
+    setDeleteCollectionDialog(true);
+    try {
+      const mocks = await mockService.getAllMocks(null, col.id, null);
+      setDeleteCollectionMockIds(mocks.map((m) => m.id));
+    } catch {
+      setDeleteCollectionMockIds([]);
+    }
+  };
+
+  const confirmDeleteCollection = async () => {
+    if (!deleteCollectionId) return;
+    setDeleteCollectionLoading(true);
+    try {
+      if (deleteCollectionMockIds.length > 0 && !deleteCollectionAlsoDeleteMocks) {
+        await mockService.bulkUpdateMocks(
+          deleteCollectionMockIds,
+          deleteCollectionMoveToCollectionId ?? null,
+          deleteCollectionMoveToFolderId ?? null
+        );
       }
-    });
+      await collectionService.deleteCollection(deleteCollectionId, deleteCollectionAlsoDeleteMocks);
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Collection deleted', life: 3000 });
+      setDeleteCollectionDialog(false);
+      loadCollections();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setDeleteCollectionLoading(false);
+    }
   };
 
   const exportCollection = async (col) => {
@@ -193,7 +236,7 @@ export default function CollectionsPage() {
     <div className="flex gap-2">
       <Button icon="pi pi-download" rounded outlined severity="info" className="p-button-sm" onClick={() => exportCollection(rowData)} tooltip="Export" tooltipOptions={{ position: 'top' }} />
       <Button icon="pi pi-pencil" rounded outlined className="p-button-sm" onClick={() => editCollection(rowData)} tooltip="Edit" tooltipOptions={{ position: 'top' }} />
-      <Button icon="pi pi-trash" rounded outlined severity="danger" className="p-button-sm" onClick={() => deleteCollection(rowData)} tooltip="Delete" tooltipOptions={{ position: 'top' }} />
+      <Button icon="pi pi-trash" rounded outlined severity="danger" className="p-button-sm" onClick={() => openDeleteCollectionDialog(rowData)} tooltip="Delete" tooltipOptions={{ position: 'top' }} />
     </div>
   );
 
@@ -220,15 +263,14 @@ export default function CollectionsPage() {
 
   const dialogFooter = (
     <>
-      <Button label="Cancel" icon="pi pi-times" outlined severity="secondary" onClick={hideDialog} />
-      <Button label="Save" icon="pi pi-check" onClick={saveCollection} />
+      <Button label="Cancel" icon="pi pi-times" outlined onClick={hideDialog} />
+      <Button label="Save" icon="pi pi-check" loading={saveLoading} onClick={saveCollection} />
     </>
   );
 
   return (
     <div>
       <Toast ref={toast} />
-      <ConfirmDialog />
 
       <div className="page-header">
         <div className="page-header-icon">
@@ -272,40 +314,124 @@ export default function CollectionsPage() {
         </DataTable>
       </div>
 
-      {/* Create/Edit Dialog */}
+      {/* Create/Edit Dialog — same style as MockManagementPage collection modals */}
       <Dialog
         visible={collectionDialog}
-        style={{ width: 'min(600px, 95vw)' }}
+        style={{ width: '22rem' }}
         header={isEditMode ? 'Edit Collection' : 'New Collection'}
         modal
         className="p-fluid"
         footer={dialogFooter}
         onHide={hideDialog}
-        breakpoints={{ '960px': '90vw', '641px': '95vw' }}
       >
-        <div className="grid">
-          <div className="col-12">
-            <div className="field">
-              <label htmlFor="name">Name <span className="text-red-500">*</span></label>
-              <InputText id="name" value={collection?.name || ''} onChange={(e) => setCollection({ ...collection, name: e.target.value })} placeholder="e.g., Payment API, Auth Service" />
-            </div>
-          </div>
-          <div className="col-12">
-            <div className="field">
-              <label htmlFor="description">Description</label>
-              <InputTextarea id="description" value={collection?.description || ''} onChange={(e) => setCollection({ ...collection, description: e.target.value })} rows={3} autoResize placeholder="Brief description of this collection" />
-            </div>
-          </div>
-          <div className="col-12">
-            <div className="field">
-              <label htmlFor="color">Color</label>
-              <div className="flex align-items-center gap-3">
-                <ColorPicker value={collection?.color || '6366f1'} onChange={(e) => setCollection({ ...collection, color: e.value })} />
-                <Tag value="Preview" style={{ backgroundColor: `#${collection?.color || '6366f1'}`, color: '#fff' }} />
-              </div>
-            </div>
+        <div className="field">
+          <label htmlFor="name">Name</label>
+          <InputText
+            id="name"
+            value={collection?.name || ''}
+            onChange={(e) => setCollection({ ...collection, name: e.target.value })}
+            placeholder="e.g. Payment API, Auth Service"
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="description">Description</label>
+          <InputTextarea
+            id="description"
+            value={collection?.description || ''}
+            onChange={(e) => setCollection({ ...collection, description: e.target.value })}
+            rows={2}
+            placeholder="Brief description"
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label>Color</label>
+          <div className="flex flex-wrap gap-2 align-items-center mt-1">
+            <button
+              type="button"
+              className="border-circle w-2rem h-2rem border-2 surface-border flex-shrink-0"
+              style={{ backgroundColor: 'transparent' }}
+              onClick={() => setCollection({ ...collection, color: '' })}
+              title="No color"
+            />
+            {COLOR_PALETTE.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                className="border-circle w-2rem h-2rem border-2 flex-shrink-0"
+                style={{
+                  backgroundColor: hex,
+                  borderColor: (collection?.color && (collection.color === hex || collection.color === hex.replace('#', ''))) ? 'var(--primary-color)' : 'var(--surface-border)'
+                }}
+                onClick={() => setCollection({ ...collection, color: hex })}
+                title={hex}
+              />
+            ))}
           </div>
         </div>
+      </Dialog>
+
+      {/* Delete Collection Dialog — same behaviour as MockManagementPage */}
+      <Dialog
+        visible={deleteCollectionDialog}
+        header="Delete Collection"
+        modal
+        className="p-fluid"
+        style={{ width: '28rem' }}
+        onHide={() => setDeleteCollectionDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setDeleteCollectionDialog(false)} />
+            <Button label="Delete" icon="pi pi-trash" severity="danger" loading={deleteCollectionLoading} onClick={confirmDeleteCollection} />
+          </>
+        }
+      >
+        {deleteCollectionMockCount > 0 ? (
+          <>
+            <p className="mb-3">This collection has <strong>{deleteCollectionMockCount}</strong> route(s).</p>
+            <div className="field mb-3">
+              <label>Move routes to</label>
+              <div className="grid">
+                <div className="col-12 md:col-6">
+                  <Dropdown
+                    value={deleteCollectionMoveToCollectionId}
+                    options={[
+                      { label: 'Uncategorized', value: null },
+                      ...collections.filter((c) => c.id !== deleteCollectionId).map((c) => ({ label: c.name, value: c.id }))
+                    ]}
+                    onChange={(e) => { setDeleteCollectionMoveToCollectionId(e.value); setDeleteCollectionMoveToFolderId(null); }}
+                    placeholder="Collection"
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-12 md:col-6">
+                  <Dropdown
+                    value={deleteCollectionMoveToFolderId}
+                    options={[
+                      { label: 'Uncategorized', value: null },
+                      ...(collections.find((c) => c.id === deleteCollectionMoveToCollectionId)?.folders || []).map((f) => ({ label: f.name, value: f.id }))
+                    ]}
+                    onChange={(e) => setDeleteCollectionMoveToFolderId(e.value)}
+                    placeholder="Folder"
+                    className="w-full"
+                    disabled={!deleteCollectionMoveToCollectionId}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="field-checkbox mb-0">
+              <Checkbox
+                inputId="deleteCollectionAlsoDeleteMocks"
+                checked={deleteCollectionAlsoDeleteMocks}
+                onChange={(e) => setDeleteCollectionAlsoDeleteMocks(e.checked)}
+              />
+              <label htmlFor="deleteCollectionAlsoDeleteMocks">Delete routes instead</label>
+            </div>
+          </>
+        ) : (
+          <p>Delete this collection?</p>
+        )}
       </Dialog>
 
       {/* Import Dialog */}

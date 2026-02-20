@@ -36,4 +36,9 @@ public class MockCollection
     /// Navigation property for related mock responses
     /// </summary>
     public ICollection<MockResponse> MockResponses { get; set; } = new List<MockResponse>();
+
+    /// <summary>
+    /// Navigation property for folders in this collection
+    /// </summary>
+    public ICollection<MockFolder> Folders { get; set; } = new List<MockFolder>();
 }

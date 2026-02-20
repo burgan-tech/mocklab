@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
@@ -18,8 +18,11 @@ import { Badge } from 'primereact/badge';
 import { IconField } from 'primereact/iconfield';
 import { InputIcon } from 'primereact/inputicon';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import { Tree } from 'primereact/tree';
+import { ContextMenu } from 'primereact/contextmenu';
 import { mockService } from '../services/mockService';
 import { collectionService } from '../services/collectionService';
+import { folderService } from '../services/folderService';
 
 export default function MockManagementPage() {
   const [mocks, setMocks] = useState([]);
@@ -38,8 +41,53 @@ export default function MockManagementPage() {
   const [openApiLoading, setOpenApiLoading] = useState(false);
   const [showTemplateHelp, setShowTemplateHelp] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const [collectionFilter, setCollectionFilter] = useState(null);
+  const [treeSelectionKey, setTreeSelectionKey] = useState('all');
+  const [treeSelectionData, setTreeSelectionData] = useState({ type: 'all' });
+  const [folderDialog, setFolderDialog] = useState(false);
+  const [newFolderCollectionId, setNewFolderCollectionId] = useState(null);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState('');
+  const [folderDialogLoading, setFolderDialogLoading] = useState(false);
+  const [contextMenuNodeKey, setContextMenuNodeKey] = useState(null);
+  const [editCollectionDialog, setEditCollectionDialog] = useState(false);
+  const [editCollectionId, setEditCollectionId] = useState(null);
+  const [editCollectionName, setEditCollectionName] = useState('');
+  const [editCollectionDescription, setEditCollectionDescription] = useState('');
+  const [editCollectionColor, setEditCollectionColor] = useState('');
+  const [editCollectionLoading, setEditCollectionLoading] = useState(false);
+  const [editFolderDialog, setEditFolderDialog] = useState(false);
+  const [editFolderId, setEditFolderId] = useState(null);
+  const [editFolderName, setEditFolderName] = useState('');
+  const [editFolderColor, setEditFolderColor] = useState('');
+  const [editFolderCollectionId, setEditFolderCollectionId] = useState(null);
+  const [editFolderParentId, setEditFolderParentId] = useState(null);
+  const [editFolderLoading, setEditFolderLoading] = useState(false);
+  const [newCollectionDialog, setNewCollectionDialog] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [newCollectionDescription, setNewCollectionDescription] = useState('');
+  const [newCollectionColor, setNewCollectionColor] = useState('');
+  const [newCollectionLoading, setNewCollectionLoading] = useState(false);
+  const [deleteFolderDialog, setDeleteFolderDialog] = useState(false);
+  const [deleteFolderId, setDeleteFolderId] = useState(null);
+  const [deleteFolderCollectionId, setDeleteFolderCollectionId] = useState(null);
+  const [deleteFolderMockCount, setDeleteFolderMockCount] = useState(0);
+  const [deleteFolderMoveToCollectionId, setDeleteFolderMoveToCollectionId] = useState(null);
+  const [deleteFolderMoveToFolderId, setDeleteFolderMoveToFolderId] = useState(null);
+  const [deleteFolderAlsoDeleteMocks, setDeleteFolderAlsoDeleteMocks] = useState(false);
+  const [deleteFolderLoading, setDeleteFolderLoading] = useState(false);
+  const [deleteCollectionDialog, setDeleteCollectionDialog] = useState(false);
+  const [deleteCollectionId, setDeleteCollectionId] = useState(null);
+  const [deleteCollectionMockCount, setDeleteCollectionMockCount] = useState(0);
+  const [deleteCollectionMoveToCollectionId, setDeleteCollectionMoveToCollectionId] = useState(null);
+  const [deleteCollectionMoveToFolderId, setDeleteCollectionMoveToFolderId] = useState(null);
+  const [deleteCollectionAlsoDeleteMocks, setDeleteCollectionAlsoDeleteMocks] = useState(false);
+  const [deleteCollectionLoading, setDeleteCollectionLoading] = useState(false);
+  const [bulkMoveDialog, setBulkMoveDialog] = useState(false);
+  const [bulkMoveCollectionId, setBulkMoveCollectionId] = useState(null);
+  const [bulkMoveFolderId, setBulkMoveFolderId] = useState(null);
+  const [bulkMoveLoading, setBulkMoveLoading] = useState(false);
   const toast = useRef(null);
+  const contextMenuRef = useRef(null);
 
   const emptyMock = {
     httpMethod: 'GET',
@@ -52,6 +100,7 @@ export default function MockManagementPage() {
     description: '',
     delayMs: null,
     collectionId: null,
+    folderId: null,
     isSequential: false,
     isActive: true,
     rules: [],
@@ -118,6 +167,13 @@ export default function MockManagementPage() {
     { label: 'Less Than', value: 'lessThan' }
   ];
 
+  const FOLDER_COLOR_PALETTE = [
+    '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+    '#f43f5e', '#ef4444', '#f97316', '#eab308', '#84cc16',
+    '#22c55e', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6',
+    '#64748b', '#78716c', '#000000'
+  ];
+
   const conditionFieldSuggestions = [
     { label: 'header.Authorization', value: 'header.Authorization' },
     { label: 'header.Content-Type', value: 'header.Content-Type' },
@@ -133,23 +189,39 @@ export default function MockManagementPage() {
   ];
 
   useEffect(() => {
-    loadMocks();
     loadCollections();
   }, []);
 
+  useEffect(() => {
+    if (collections.length === 0 && treeSelectionData.type === 'all') {
+      loadMocksForSelection({ type: 'all' });
+      return;
+    }
+    loadMocksForSelection(treeSelectionData);
+  }, [treeSelectionKey, treeSelectionData.type, treeSelectionData.collectionId, treeSelectionData.folderId]);
+
   const loadCollections = async () => {
     try {
-      const data = await collectionService.getAllCollections();
+      const data = await collectionService.getAllCollections(true);
       setCollections(data);
     } catch {
       // Silently fail - collections are optional
     }
   };
 
-  const loadMocks = async () => {
+  const loadMocksForSelection = async (selection) => {
     setLoading(true);
     try {
-      const data = await mockService.getAllMocks();
+      let data;
+      if (selection.type === 'all' || selection.type === 'uncategorized') {
+        data = await mockService.getAllMocks(null, null, null);
+      } else if (selection.type === 'collectionAll' || selection.type === 'collectionUncategorized') {
+        data = await mockService.getAllMocks(null, selection.collectionId, null);
+      } else if (selection.type === 'folder') {
+        data = await mockService.getAllMocks(null, null, selection.folderId);
+      } else {
+        data = await mockService.getAllMocks(null, selection.collectionId ?? null, null);
+      }
       setMocks(data);
     } catch (error) {
       toast.current.show({
@@ -162,6 +234,306 @@ export default function MockManagementPage() {
       setLoading(false);
     }
   };
+
+  const loadMocks = () => loadMocksForSelection(treeSelectionData);
+
+  const openFolderDialog = (presetCollectionId = null) => {
+    setNewFolderCollectionId(presetCollectionId ?? (collections.length ? collections[0].id : null));
+    setNewFolderName('');
+    setNewFolderColor('');
+    setFolderDialog(true);
+  };
+
+  const openEditCollectionDialog = (collectionId) => {
+    const c = collections.find((x) => x.id === collectionId);
+    if (!c) return;
+    setEditCollectionId(c.id);
+    setEditCollectionName(c.name);
+    setEditCollectionDescription(c.description ?? '');
+    setEditCollectionColor(c.color ?? '');
+    setEditCollectionDialog(true);
+  };
+
+  const saveEditCollection = async () => {
+    if (!editCollectionName.trim()) {
+      toast.current.show({ severity: 'warn', summary: 'Warning', detail: 'Name is required', life: 3000 });
+      return;
+    }
+    setEditCollectionLoading(true);
+    try {
+      await collectionService.updateCollection(editCollectionId, {
+        name: editCollectionName.trim(),
+        description: editCollectionDescription.trim() || null,
+        color: editCollectionColor.trim() || null
+      });
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Collection updated', life: 3000 });
+      setEditCollectionDialog(false);
+      loadCollections();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setEditCollectionLoading(false);
+    }
+  };
+
+  const openEditFolderDialog = (folderId, collectionId) => {
+    const col = collections.find((c) => c.id === collectionId);
+    const folder = col?.folders?.find((f) => f.id === folderId);
+    if (!folder) return;
+    setEditFolderId(folder.id);
+    setEditFolderName(folder.name);
+    setEditFolderColor(folder.color ?? '');
+    setEditFolderCollectionId(collectionId);
+    setEditFolderParentId(folder.parentFolderId ?? null);
+    setEditFolderDialog(true);
+  };
+
+  const saveEditFolder = async () => {
+    if (!editFolderName.trim()) {
+      toast.current.show({ severity: 'warn', summary: 'Warning', detail: 'Name is required', life: 3000 });
+      return;
+    }
+    setEditFolderLoading(true);
+    try {
+      await folderService.updateFolder(editFolderId, {
+        name: editFolderName.trim(),
+        color: editFolderColor.trim() || null,
+        parentFolderId: editFolderParentId
+      });
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Folder updated', life: 3000 });
+      setEditFolderDialog(false);
+      loadCollections();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setEditFolderLoading(false);
+    }
+  };
+
+  const openDeleteFolderDialog = (folderId, collectionId) => {
+    const col = collections.find((c) => c.id === collectionId);
+    const folder = col?.folders?.find((f) => f.id === folderId);
+    const mockCount = folder?.mockCount ?? 0;
+    setDeleteFolderId(folderId);
+    setDeleteFolderCollectionId(collectionId);
+    setDeleteFolderMockCount(mockCount);
+    setDeleteFolderMoveToCollectionId(null);
+    setDeleteFolderMoveToFolderId(null);
+    setDeleteFolderAlsoDeleteMocks(false);
+    setDeleteFolderDialog(true);
+  };
+
+  const confirmDeleteFolder = async () => {
+    if (!deleteFolderId) return;
+    setDeleteFolderLoading(true);
+    try {
+      if (deleteFolderMockCount > 0 && !deleteFolderAlsoDeleteMocks) {
+        const mockIds = mocks.filter((m) => m.folderId === deleteFolderId).map((m) => m.id);
+        if (mockIds.length > 0) {
+          await mockService.bulkUpdateMocks(mockIds, deleteFolderMoveToCollectionId ?? null, deleteFolderMoveToFolderId ?? null);
+        }
+      }
+      await folderService.deleteFolder(deleteFolderId, deleteFolderAlsoDeleteMocks);
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Folder deleted', life: 3000 });
+      setDeleteFolderDialog(false);
+      loadCollections();
+      loadMocks();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setDeleteFolderLoading(false);
+    }
+  };
+
+  const openDeleteCollectionDialog = (collectionId) => {
+    const col = collections.find((c) => c.id === collectionId);
+    const mockCount = col?.mockCount ?? 0;
+    setDeleteCollectionId(collectionId);
+    setDeleteCollectionMockCount(mockCount);
+    setDeleteCollectionMoveToCollectionId(collections.filter((c) => c.id !== collectionId)[0]?.id ?? null);
+    setDeleteCollectionMoveToFolderId(null);
+    setDeleteCollectionAlsoDeleteMocks(false);
+    setDeleteCollectionDialog(true);
+  };
+
+  const confirmDeleteCollection = async () => {
+    if (!deleteCollectionId) return;
+    setDeleteCollectionLoading(true);
+    try {
+      if (deleteCollectionMockCount > 0 && !deleteCollectionAlsoDeleteMocks) {
+        const mockIds = mocks.filter((m) => m.collectionId === deleteCollectionId).map((m) => m.id);
+        if (mockIds.length > 0) {
+          await mockService.bulkUpdateMocks(mockIds, deleteCollectionMoveToCollectionId ?? null, deleteCollectionMoveToFolderId ?? null);
+        }
+      }
+      await collectionService.deleteCollection(deleteCollectionId, deleteCollectionAlsoDeleteMocks);
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Collection deleted', life: 3000 });
+      setDeleteCollectionDialog(false);
+      loadCollections();
+      loadMocks();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setDeleteCollectionLoading(false);
+    }
+  };
+
+  const openBulkMoveDialog = () => {
+    setBulkMoveCollectionId(null);
+    setBulkMoveFolderId(null);
+    setBulkMoveDialog(true);
+  };
+
+  const saveBulkMove = async () => {
+    if (!selectedMocks?.length) return;
+    setBulkMoveLoading(true);
+    try {
+      await mockService.bulkUpdateMocks(
+        selectedMocks.map((m) => m.id),
+        bulkMoveCollectionId,
+        bulkMoveFolderId
+      );
+      toast.current.show({ severity: 'success', summary: 'Success', detail: `${selectedMocks.length} route(s) updated`, life: 3000 });
+      setBulkMoveDialog(false);
+      setSelectedMocks(null);
+      loadMocks();
+      loadCollections();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setBulkMoveLoading(false);
+    }
+  };
+
+  const saveNewCollection = async () => {
+    if (!newCollectionName.trim()) {
+      toast.current.show({ severity: 'warn', summary: 'Warning', detail: 'Name is required', life: 3000 });
+      return;
+    }
+    setNewCollectionLoading(true);
+    try {
+      await collectionService.createCollection({
+        name: newCollectionName.trim(),
+        description: newCollectionDescription.trim() || null,
+        color: newCollectionColor.trim() || null
+      });
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Collection created', life: 3000 });
+      setNewCollectionDialog(false);
+      setNewCollectionName('');
+      setNewCollectionDescription('');
+      setNewCollectionColor('');
+      loadCollections();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setNewCollectionLoading(false);
+    }
+  };
+
+  const saveFolder = async () => {
+    if (!newFolderName.trim() || !newFolderCollectionId) {
+      toast.current.show({ severity: 'warn', summary: 'Warning', detail: 'Select a collection and enter folder name', life: 3000 });
+      return;
+    }
+    setFolderDialogLoading(true);
+    try {
+      await folderService.createFolder(newFolderCollectionId, { name: newFolderName.trim(), color: newFolderColor.trim() || null });
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Folder created', life: 3000 });
+      setFolderDialog(false);
+      loadCollections();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+    } finally {
+      setFolderDialogLoading(false);
+    }
+  };
+
+  function findNodeByKey(nodes, key) {
+    if (!nodes || !key) return null;
+    for (const node of nodes) {
+      if (node.key === key) return node.data ? { ...node.data, key: node.key } : { key: node.key };
+      if (node.children) {
+        const found = findNodeByKey(node.children, key);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  const treeNodes = useMemo(() => {
+    const nodes = [
+      { key: 'all', label: 'All', data: { type: 'all' }, icon: 'pi pi-fw pi-th-large' },
+      { key: 'uncategorized', label: 'Uncategorized', data: { type: 'uncategorized' }, icon: 'pi pi-fw pi-folder-open' }
+    ];
+    (collections || []).forEach((c) => {
+      const folderList = c.folders || [];
+      const children = [
+        { key: `collection-${c.id}-all`, label: 'All', data: { type: 'collectionAll', collectionId: c.id }, icon: 'pi pi-fw pi-list' },
+        { key: `collection-${c.id}-uncategorized`, label: 'Uncategorized', data: { type: 'collectionUncategorized', collectionId: c.id }, icon: 'pi pi-fw pi-folder-open' }
+      ];
+      folderList.forEach((f) => {
+        children.push({
+          key: `folder-${f.id}`,
+          label: f.mockCount != null ? `${f.name} (${f.mockCount})` : f.name,
+          data: { type: 'folder', folderId: f.id, collectionId: c.id, color: f.color },
+          icon: 'pi pi-fw pi-folder'
+        });
+      });
+      nodes.push({
+        key: `collection-${c.id}`,
+        label: c.mockCount != null ? `${c.name} (${c.mockCount})` : c.name,
+        data: { type: 'collection', collectionId: c.id, color: c.color },
+        icon: 'pi pi-fw pi-folder',
+        children
+      });
+    });
+    return nodes;
+  }, [collections]);
+
+  const onTreeSelectionChange = (e) => {
+    const key = e.value && (typeof e.value === 'string' ? e.value : Object.keys(e.value || {})[0]);
+    if (!key) return;
+    const data = findNodeByKey(treeNodes, key);
+    setTreeSelectionKey(key);
+    setTreeSelectionData(data || { type: 'all' });
+  };
+
+  const contextMenuNodeData = useMemo(
+    () => (contextMenuNodeKey ? findNodeByKey(treeNodes, contextMenuNodeKey) : null),
+    [treeNodes, contextMenuNodeKey]
+  );
+
+  const contextMenuModel = useMemo(() => {
+    if (!contextMenuNodeData) return [];
+    const { type, collectionId, folderId } = contextMenuNodeData;
+    const items = [];
+    if (type === 'collection' && collectionId) {
+      items.push({ label: 'Edit collection', icon: 'pi pi-pencil', command: () => openEditCollectionDialog(collectionId) });
+      items.push({ label: 'New folder', icon: 'pi pi-folder-plus', command: () => openFolderDialog(collectionId) });
+      items.push({ label: 'Delete collection', icon: 'pi pi-trash', command: () => openDeleteCollectionDialog(collectionId) });
+    }
+    if ((type === 'collectionAll' || type === 'collectionUncategorized') && collectionId) {
+      items.push({ label: 'New folder', icon: 'pi pi-folder-plus', command: () => openFolderDialog(collectionId) });
+    }
+    if (type === 'folder' && folderId && collectionId) {
+      items.push({ label: 'Edit folder', icon: 'pi pi-pencil', command: () => openEditFolderDialog(folderId, collectionId) });
+      items.push({ label: 'Delete folder', icon: 'pi pi-trash', command: () => openDeleteFolderDialog(folderId, collectionId) });
+    }
+    return items;
+  }, [contextMenuNodeData]);
+
+  const onTreeContextMenu = (e) => {
+    setContextMenuNodeKey(e.node?.key ?? null);
+    if (e.originalEvent && contextMenuRef.current) contextMenuRef.current.show(e.originalEvent);
+  };
+
+  const filteredMocks = useMemo(() => {
+    if (treeSelectionData.type === 'uncategorized') return mocks.filter((m) => !m.collectionId);
+    if (treeSelectionData.type === 'collectionUncategorized') return mocks.filter((m) => m.collectionId === treeSelectionData.collectionId && !m.folderId);
+    return mocks;
+  }, [mocks, treeSelectionData.type, treeSelectionData.collectionId]);
+
+  const showCollectionColumn = treeSelectionData.type === 'all' || treeSelectionData.type === 'uncategorized';
 
   const openNew = () => {
     setMock(emptyMock);
@@ -188,8 +560,9 @@ export default function MockManagementPage() {
     }
 
     try {
-      // Clean up sequence items ordering before save
+      // Clean up sequence items ordering before save; ensure folderId is null when uncategorized
       const mockToSave = { ...mock };
+      mockToSave.folderId = mock.folderId ?? null;
       if (mockToSave.sequenceItems) {
         mockToSave.sequenceItems = mockToSave.sequenceItems.map((item, idx) => ({
           ...item,
@@ -537,57 +910,16 @@ export default function MockManagementPage() {
   const leftToolbarTemplate = () => (
     <div className="flex flex-wrap gap-2">
       <Button label="New Mock" icon="pi pi-plus" severity="success" onClick={openNew} />
+      {selectedMocks?.length > 0 && (
+        <Button label={`Move to collection (${selectedMocks.length})`} icon="pi pi-folder-open" severity="secondary" outlined onClick={openBulkMoveDialog} />
+      )}
       <Button label="Import cURL" icon="pi pi-download" severity="help" outlined onClick={() => setCurlDialog(true)} className="hidden-label-sm" />
       <Button label="Import OpenAPI" icon="pi pi-file-import" severity="info" outlined onClick={() => setOpenApiDialog(true)} className="hidden-label-sm" />
     </div>
   );
 
-  const collectionFilterOptions = [
-    { label: 'All Collections', value: null },
-    { label: 'No Collection', value: -1 },
-    ...collections.map(c => ({ label: c.name, value: c.id }))
-  ];
-
-  const filteredMocks = collectionFilter === null
-    ? mocks
-    : collectionFilter === -1
-      ? mocks.filter(m => !m.collectionId)
-      : mocks.filter(m => m.collectionId === collectionFilter);
-
-  const collectionFilterTemplate = (option) => {
-    if (option.value === null || option.value === -1) return <span>{option.label}</span>;
-    const col = collections.find(c => c.id === option.value);
-    return (
-      <div className="flex align-items-center gap-2">
-        {col?.color && <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', backgroundColor: col.color }} />}
-        <span>{option.label}</span>
-      </div>
-    );
-  };
-
   const rightToolbarTemplate = () => (
     <div className="flex flex-wrap gap-2 align-items-center">
-      {collections.length > 0 && (
-        <Dropdown
-          value={collectionFilter}
-          options={collectionFilterOptions}
-          onChange={(e) => setCollectionFilter(e.value)}
-          placeholder="Collection"
-          itemTemplate={collectionFilterTemplate}
-          valueTemplate={(option) => {
-            if (!option || option.value === null) return <span className="text-color-secondary"><i className="pi pi-filter mr-2" style={{ fontSize: '0.875rem' }}></i>All Collections</span>;
-            if (option.value === -1) return <span><i className="pi pi-filter mr-2" style={{ fontSize: '0.875rem' }}></i>No Collection</span>;
-            const col = collections.find(c => c.id === option.value);
-            return (
-              <span className="flex align-items-center gap-2">
-                {col?.color && <div style={{ width: '0.625rem', height: '0.625rem', borderRadius: '50%', backgroundColor: col.color }} />}
-                {option.label}
-              </span>
-            );
-          }}
-          style={{ width: '12rem' }}
-        />
-      )}
       <Button icon="pi pi-refresh" outlined onClick={loadMocks} tooltip="Refresh" tooltipOptions={{ position: 'top' }} />
       <Button icon="pi pi-trash" severity="danger" outlined onClick={clearAllMocks} tooltip="Clear All" tooltipOptions={{ position: 'top' }} />
     </div>
@@ -868,6 +1200,419 @@ export default function MockManagementPage() {
       <Toast ref={toast} />
       <ConfirmDialog />
 
+      <Dialog
+        visible={folderDialog}
+        header="New Folder"
+        modal
+        className="p-fluid"
+        style={{ width: '22rem' }}
+        onHide={() => setFolderDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setFolderDialog(false)} />
+            <Button label="Create" icon="pi pi-check" loading={folderDialogLoading} onClick={saveFolder} />
+          </>
+        }
+      >
+        <div className="field">
+          <label htmlFor="newFolderCollection">Collection</label>
+          <Dropdown
+            id="newFolderCollection"
+            value={newFolderCollectionId}
+            options={collections.map(c => ({ label: c.name, value: c.id }))}
+            onChange={(e) => setNewFolderCollectionId(e.value)}
+            placeholder="Select collection"
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="newFolderName">Folder name</label>
+          <InputText
+            id="newFolderName"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            placeholder="e.g. Auth, Users"
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label>Color</label>
+          <div className="flex flex-wrap gap-2 align-items-center mt-1">
+            <button
+              type="button"
+              className="border-circle w-2rem h-2rem border-2 surface-border flex-shrink-0"
+              style={{ backgroundColor: 'transparent' }}
+              onClick={() => setNewFolderColor('')}
+              title="No color"
+            />
+            {FOLDER_COLOR_PALETTE.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                className="border-circle w-2rem h-2rem border-2 flex-shrink-0"
+                style={{
+                  backgroundColor: hex,
+                  borderColor: newFolderColor === hex ? 'var(--primary-color)' : 'var(--surface-border)'
+                }}
+                onClick={() => setNewFolderColor(hex)}
+                title={hex}
+              />
+            ))}
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        visible={editCollectionDialog}
+        header="Edit Collection"
+        modal
+        className="p-fluid"
+        style={{ width: '22rem' }}
+        onHide={() => setEditCollectionDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setEditCollectionDialog(false)} />
+            <Button label="Save" icon="pi pi-check" loading={editCollectionLoading} onClick={saveEditCollection} />
+          </>
+        }
+      >
+        <div className="field">
+          <label htmlFor="editCollectionName">Name</label>
+          <InputText
+            id="editCollectionName"
+            value={editCollectionName}
+            onChange={(e) => setEditCollectionName(e.target.value)}
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="editCollectionDescription">Description</label>
+          <InputTextarea
+            id="editCollectionDescription"
+            value={editCollectionDescription}
+            onChange={(e) => setEditCollectionDescription(e.target.value)}
+            rows={2}
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label>Color</label>
+          <div className="flex flex-wrap gap-2 align-items-center mt-1">
+            <button
+              type="button"
+              className="border-circle w-2rem h-2rem border-2 surface-border flex-shrink-0"
+              style={{ backgroundColor: 'transparent' }}
+              onClick={() => setEditCollectionColor('')}
+              title="No color"
+            />
+            {FOLDER_COLOR_PALETTE.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                className="border-circle w-2rem h-2rem border-2 flex-shrink-0"
+                style={{
+                  backgroundColor: hex,
+                  borderColor: editCollectionColor === hex ? 'var(--primary-color)' : 'var(--surface-border)'
+                }}
+                onClick={() => setEditCollectionColor(hex)}
+                title={hex}
+              />
+            ))}
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        visible={editFolderDialog}
+        header="Edit Folder"
+        modal
+        className="p-fluid"
+        style={{ width: '22rem' }}
+        onHide={() => setEditFolderDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setEditFolderDialog(false)} />
+            <Button label="Save" icon="pi pi-check" loading={editFolderLoading} onClick={saveEditFolder} />
+          </>
+        }
+      >
+        <div className="field">
+          <label htmlFor="editFolderName">Folder name</label>
+          <InputText
+            id="editFolderName"
+            value={editFolderName}
+            onChange={(e) => setEditFolderName(e.target.value)}
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="editFolderParentId">Parent folder</label>
+          <Dropdown
+            id="editFolderParentId"
+            value={editFolderParentId}
+            options={[
+              { label: 'None (root)', value: null },
+              ...(collections.find((c) => c.id === editFolderCollectionId)?.folders || [])
+                .filter((f) => f.id !== editFolderId)
+                .map((f) => ({ label: f.name, value: f.id }))
+            ]}
+            onChange={(e) => setEditFolderParentId(e.value)}
+            placeholder="None"
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label>Color</label>
+          <div className="flex flex-wrap gap-2 align-items-center mt-1">
+            <button
+              type="button"
+              className="border-circle w-2rem h-2rem border-2 surface-border flex-shrink-0"
+              style={{ backgroundColor: 'transparent' }}
+              onClick={() => setEditFolderColor('')}
+              title="No color"
+            />
+            {FOLDER_COLOR_PALETTE.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                className="border-circle w-2rem h-2rem border-2 flex-shrink-0"
+                style={{
+                  backgroundColor: hex,
+                  borderColor: editFolderColor === hex ? 'var(--primary-color)' : 'var(--surface-border)'
+                }}
+                onClick={() => setEditFolderColor(hex)}
+                title={hex}
+              />
+            ))}
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        visible={newCollectionDialog}
+        header="New Collection"
+        modal
+        className="p-fluid"
+        style={{ width: '22rem' }}
+        onHide={() => setNewCollectionDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setNewCollectionDialog(false)} />
+            <Button label="Create" icon="pi pi-check" loading={newCollectionLoading} onClick={saveNewCollection} />
+          </>
+        }
+      >
+        <div className="field">
+          <label htmlFor="newCollectionName">Name</label>
+          <InputText
+            id="newCollectionName"
+            value={newCollectionName}
+            onChange={(e) => setNewCollectionName(e.target.value)}
+            placeholder="Collection name"
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="newCollectionDescription">Description</label>
+          <InputTextarea
+            id="newCollectionDescription"
+            value={newCollectionDescription}
+            onChange={(e) => setNewCollectionDescription(e.target.value)}
+            rows={2}
+            className="w-full"
+          />
+        </div>
+        <div className="field">
+          <label>Color</label>
+          <div className="flex flex-wrap gap-2 align-items-center mt-1">
+            <button
+              type="button"
+              className="border-circle w-2rem h-2rem border-2 surface-border flex-shrink-0"
+              style={{ backgroundColor: 'transparent' }}
+              onClick={() => setNewCollectionColor('')}
+              title="No color"
+            />
+            {FOLDER_COLOR_PALETTE.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                className="border-circle w-2rem h-2rem border-2 flex-shrink-0"
+                style={{
+                  backgroundColor: hex,
+                  borderColor: newCollectionColor === hex ? 'var(--primary-color)' : 'var(--surface-border)'
+                }}
+                onClick={() => setNewCollectionColor(hex)}
+                title={hex}
+              />
+            ))}
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        visible={deleteFolderDialog}
+        header="Delete Folder"
+        modal
+        className="p-fluid"
+        style={{ width: '28rem' }}
+        onHide={() => setDeleteFolderDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setDeleteFolderDialog(false)} />
+            <Button label="Delete" icon="pi pi-trash" severity="danger" loading={deleteFolderLoading} onClick={confirmDeleteFolder} />
+          </>
+        }
+      >
+        {deleteFolderMockCount > 0 ? (
+          <>
+            <p className="mb-3">This folder has <strong>{deleteFolderMockCount}</strong> route(s).</p>
+            <div className="field mb-3">
+              <label>Move routes to</label>
+              <div className="grid">
+                <div className="col-12 md:col-6">
+                  <Dropdown
+                    value={deleteFolderMoveToCollectionId}
+                    options={[
+                      { label: 'Uncategorized', value: null },
+                      ...collections.filter((c) => c.id !== deleteFolderCollectionId).map((c) => ({ label: c.name, value: c.id }))
+                    ]}
+                    onChange={(e) => { setDeleteFolderMoveToCollectionId(e.value); setDeleteFolderMoveToFolderId(null); }}
+                    placeholder="Collection"
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-12 md:col-6">
+                  <Dropdown
+                    value={deleteFolderMoveToFolderId}
+                    options={[
+                      { label: 'Uncategorized', value: null },
+                      ...(collections.find((c) => c.id === deleteFolderMoveToCollectionId)?.folders || []).map((f) => ({ label: f.name, value: f.id }))
+                    ]}
+                    onChange={(e) => setDeleteFolderMoveToFolderId(e.value)}
+                    placeholder="Folder"
+                    className="w-full"
+                    disabled={!deleteFolderMoveToCollectionId}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="field-checkbox mb-0">
+              <Checkbox
+                inputId="deleteFolderAlsoDeleteMocks"
+                checked={deleteFolderAlsoDeleteMocks}
+                onChange={(e) => setDeleteFolderAlsoDeleteMocks(e.checked)}
+              />
+              <label htmlFor="deleteFolderAlsoDeleteMocks">Delete routes instead</label>
+            </div>
+          </>
+        ) : (
+          <p>Delete this folder? Child folders will become root folders.</p>
+        )}
+      </Dialog>
+
+      <Dialog
+        visible={deleteCollectionDialog}
+        header="Delete Collection"
+        modal
+        className="p-fluid"
+        style={{ width: '28rem' }}
+        onHide={() => setDeleteCollectionDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setDeleteCollectionDialog(false)} />
+            <Button label="Delete" icon="pi pi-trash" severity="danger" loading={deleteCollectionLoading} onClick={confirmDeleteCollection} />
+          </>
+        }
+      >
+        {deleteCollectionMockCount > 0 ? (
+          <>
+            <p className="mb-3">This collection has <strong>{deleteCollectionMockCount}</strong> route(s).</p>
+            <div className="field mb-3">
+              <label>Move routes to</label>
+              <div className="grid">
+                <div className="col-12 md:col-6">
+                  <Dropdown
+                    value={deleteCollectionMoveToCollectionId}
+                    options={[
+                      { label: 'Uncategorized', value: null },
+                      ...collections.filter((c) => c.id !== deleteCollectionId).map((c) => ({ label: c.name, value: c.id }))
+                    ]}
+                    onChange={(e) => { setDeleteCollectionMoveToCollectionId(e.value); setDeleteCollectionMoveToFolderId(null); }}
+                    placeholder="Collection"
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-12 md:col-6">
+                  <Dropdown
+                    value={deleteCollectionMoveToFolderId}
+                    options={[
+                      { label: 'Uncategorized', value: null },
+                      ...(collections.find((c) => c.id === deleteCollectionMoveToCollectionId)?.folders || []).map((f) => ({ label: f.name, value: f.id }))
+                    ]}
+                    onChange={(e) => setDeleteCollectionMoveToFolderId(e.value)}
+                    placeholder="Folder"
+                    className="w-full"
+                    disabled={!deleteCollectionMoveToCollectionId}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="field-checkbox mb-0">
+              <Checkbox
+                inputId="deleteCollectionAlsoDeleteMocks"
+                checked={deleteCollectionAlsoDeleteMocks}
+                onChange={(e) => setDeleteCollectionAlsoDeleteMocks(e.checked)}
+              />
+              <label htmlFor="deleteCollectionAlsoDeleteMocks">Delete routes instead</label>
+            </div>
+          </>
+        ) : (
+          <p>Delete this collection?</p>
+        )}
+      </Dialog>
+
+      <Dialog
+        visible={bulkMoveDialog}
+        header={`Move ${selectedMocks?.length ?? 0} route(s) to collection`}
+        modal
+        className="p-fluid"
+        style={{ width: '22rem' }}
+        onHide={() => setBulkMoveDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setBulkMoveDialog(false)} />
+            <Button label="Update" icon="pi pi-check" loading={bulkMoveLoading} onClick={saveBulkMove} />
+          </>
+        }
+      >
+        <div className="field">
+          <label>Collection</label>
+          <Dropdown
+            value={bulkMoveCollectionId}
+            options={collections.map((c) => ({ label: c.name, value: c.id }))}
+            onChange={(e) => { setBulkMoveCollectionId(e.value); setBulkMoveFolderId(null); }}
+            placeholder="Select collection (or leave uncategorized)"
+            className="w-full"
+            showClear
+          />
+        </div>
+        <div className="field">
+          <label>Folder</label>
+          <Dropdown
+            value={bulkMoveFolderId}
+            options={[
+              { label: 'Uncategorized', value: null },
+              ...(collections.find((c) => c.id === bulkMoveCollectionId)?.folders || []).map((f) => ({ label: f.name, value: f.id }))
+            ]}
+            onChange={(e) => setBulkMoveFolderId(e.value)}
+            placeholder="Uncategorized"
+            className="w-full"
+            disabled={!bulkMoveCollectionId}
+            showClear
+          />
+        </div>
+      </Dialog>
+
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-icon">
@@ -879,79 +1624,118 @@ export default function MockManagementPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="card">
-        <Toolbar className="mb-4" start={leftToolbarTemplate} end={rightToolbarTemplate} />
+      {/* Main Content: split layout — collection tree (left) + route table (right) */}
+      <div className="grid">
+        <div className="col-12 md:col-4 lg:col-3">
+          <div className="card h-full">
+            <div className="flex align-items-center justify-content-between mb-3">
+              <h5 className="mt-0 mb-0">Collections</h5>
+              <Button icon="pi pi-plus" rounded text size="small" onClick={() => { setNewCollectionName(''); setNewCollectionDescription(''); setNewCollectionColor(''); setNewCollectionDialog(true); }} tooltip="New collection" tooltipOptions={{ position: 'bottom' }} />
+            </div>
+            <Tree
+              value={treeNodes}
+              selectionMode="single"
+              selectionKeys={treeSelectionKey}
+              onSelectionChange={onTreeSelectionChange}
+              onContextMenu={onTreeContextMenu}
+              contextMenuSelectionKey={contextMenuNodeKey}
+              onContextMenuSelectionChange={(e) => setContextMenuNodeKey(e.value ?? null)}
+              className="w-full border-none"
+              filter
+              filterPlaceholder="Search..."
+              nodeTemplate={(node) => (
+                <div className="flex align-items-center gap-2">
+                  {node.data?.color ? (
+                    <span
+                      className="flex-shrink-0 border-circle border-1 border-400"
+                      style={{ width: '0.75rem', height: '0.75rem', backgroundColor: node.data.color }}
+                      title={node.data.color}
+                    />
+                  ) : null}
+                  <span>{node.label}</span>
+                </div>
+              )}
+            />
+            <ContextMenu model={contextMenuModel} ref={contextMenuRef} />
+          </div>
+        </div>
+        <div className="col-12 md:col-8 lg:col-9">
+          <div className="card">
+            <Toolbar className="mb-4" start={leftToolbarTemplate} end={rightToolbarTemplate} />
 
-        <Message
-          severity="info"
-          text="Mock responses will be matched against incoming requests based on HTTP method, route, and query string"
-          className="mb-4 w-full"
-        />
+            <Message
+              severity="info"
+              text="Mock responses will be matched against incoming requests based on HTTP method, route, and query string"
+              className="mb-4 w-full"
+            />
 
-        <DataTable
-          value={filteredMocks}
-          selection={selectedMocks}
-          onSelectionChange={(e) => setSelectedMocks(e.value)}
-          dataKey="id"
-          paginator
-          rows={10}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-          currentPageReportTemplate="Showing {first} to {last} of {totalRecords} mocks"
-          globalFilter={globalFilter}
-          header={header}
-          loading={loading}
-          stripedRows
-          rowHover
-          emptyMessage="No mock responses found."
-          size="small"
-          scrollable
-          scrollHeight="flex"
-          tableStyle={{ minWidth: '70rem' }}
-        >
-          <Column selectionMode="multiple" exportable={false} frozen style={{ width: '3rem' }} />
-          <Column field="httpMethod" header="Method" sortable body={httpMethodBodyTemplate} style={{ width: '6rem' }} />
-          <Column field="route" header="Route" sortable style={{ minWidth: '14rem' }} />
-          <Column field="statusCode" header="Status" sortable body={statusCodeBodyTemplate} style={{ width: '5.5rem' }} />
-          <Column
-            field="delayMs"
-            header="Delay"
-            sortable
-            body={(rowData) => rowData.delayMs ? (
-              <Tag value={`${rowData.delayMs}ms`} severity="warning" />
-            ) : (
-              <span className="text-color-secondary">-</span>
-            )}
-            style={{ width: '5.5rem' }}
-          />
-          <Column
-            header="Features"
-            body={featuresBodyTemplate}
-            style={{ minWidth: '9rem' }}
-          />
-          <Column
-            field="description"
-            header="Description"
-            body={(rowData) => rowData.description || <span className="text-color-secondary">-</span>}
-            style={{ minWidth: '10rem' }}
-          />
-          <Column
-            field="collectionId"
-            header="Collection"
-            body={(rowData) => {
-              const col = collections.find(c => c.id === rowData.collectionId);
-              return col ? (
-                <Tag value={col.name} style={{ backgroundColor: col.color || '#6366f1', color: '#fff' }} />
-              ) : (
-                <span className="text-color-secondary">-</span>
-              );
-            }}
-            style={{ minWidth: '7rem' }}
-          />
-          <Column field="isActive" header="Active" sortable body={statusBodyTemplate} style={{ width: '5.5rem' }} />
-          <Column body={actionBodyTemplate} exportable={false} frozen alignFrozen="right" style={{ width: '11rem' }} />
-        </DataTable>
+            <DataTable
+              value={filteredMocks}
+              selection={selectedMocks}
+              onSelectionChange={(e) => setSelectedMocks(e.value)}
+              dataKey="id"
+              paginator
+              rows={10}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+              currentPageReportTemplate="Showing {first} to {last} of {totalRecords} mocks"
+              globalFilter={globalFilter}
+              header={header}
+              loading={loading}
+              stripedRows
+              rowHover
+              emptyMessage="No mock responses found."
+              size="small"
+              scrollable
+              scrollHeight="flex"
+              tableStyle={{ minWidth: '70rem' }}
+            >
+              <Column selectionMode="multiple" exportable={false} frozen style={{ width: '3rem' }} />
+              <Column field="httpMethod" header="Method" sortable body={httpMethodBodyTemplate} style={{ width: '6rem' }} />
+              <Column field="route" header="Route" sortable style={{ minWidth: '14rem' }} />
+              <Column field="statusCode" header="Status" sortable body={statusCodeBodyTemplate} style={{ width: '5.5rem' }} />
+              <Column
+                field="delayMs"
+                header="Delay"
+                sortable
+                body={(rowData) => rowData.delayMs ? (
+                  <Tag value={`${rowData.delayMs}ms`} severity="warning" />
+                ) : (
+                  <span className="text-color-secondary">-</span>
+                )}
+                style={{ width: '5.5rem' }}
+              />
+              <Column
+                header="Features"
+                body={featuresBodyTemplate}
+                style={{ minWidth: '9rem' }}
+              />
+              <Column
+                field="description"
+                header="Description"
+                body={(rowData) => rowData.description || <span className="text-color-secondary">-</span>}
+                style={{ minWidth: '10rem' }}
+              />
+              {showCollectionColumn && (
+                <Column
+                  field="collectionId"
+                  header="Collection"
+                  body={(rowData) => {
+                    const col = collections.find(c => c.id === rowData.collectionId);
+                    return col ? (
+                      <Tag value={col.name} style={{ backgroundColor: col.color || '#6366f1', color: '#fff' }} />
+                    ) : (
+                      <span className="text-color-secondary">-</span>
+                    );
+                  }}
+                  style={{ minWidth: '7rem' }}
+                />
+              )}
+              <Column field="isActive" header="Active" sortable body={statusBodyTemplate} style={{ width: '5.5rem' }} />
+              <Column body={actionBodyTemplate} exportable={false} frozen alignFrozen="right" style={{ width: '11rem' }} />
+            </DataTable>
+          </div>
+        </div>
       </div>
 
       {/* Mock Dialog with TabView */}
@@ -1024,11 +1808,35 @@ export default function MockManagementPage() {
                     onChange={(e) => {
                       let _mock = { ...mock };
                       _mock.collectionId = e.value;
+                      _mock.folderId = null;
                       setMock(_mock);
                     }}
                     placeholder="No collection"
                     showClear
                   />
+                </div>
+              </div>
+
+              <div className="col-12 md:col-6">
+                <div className="field">
+                  <label htmlFor="folderId">Folder</label>
+                  <Dropdown
+                    id="folderId"
+                    value={mock?.folderId ?? null}
+                    options={[
+                      { label: 'Uncategorized', value: null },
+                      ...(collections.find(c => c.id === mock?.collectionId)?.folders || []).map(f => ({ label: f.name, value: f.id }))
+                    ]}
+                    onChange={(e) => {
+                      let _mock = { ...mock };
+                      _mock.folderId = e.value !== undefined && e.value !== null ? e.value : null;
+                      setMock(_mock);
+                    }}
+                    placeholder="Uncategorized (optional)"
+                    showClear
+                    disabled={!mock?.collectionId}
+                  />
+                  <small>Optional. Leave as Uncategorized for no folder.</small>
                 </div>
               </div>
 
