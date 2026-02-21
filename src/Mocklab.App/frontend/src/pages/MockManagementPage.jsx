@@ -108,13 +108,42 @@ export default function MockManagementPage() {
   };
 
   const emptyRule = {
-    conditionField: '',
+    fieldScope: 'body',
+    customField: '',
     conditionOperator: 'equals',
     conditionValue: '',
     statusCode: 200,
     responseBody: '',
     contentType: 'application/json',
     priority: 0
+  };
+
+  // Parse ConditionField (from API) into FieldScope + CustomField for UI
+  const parseConditionField = (conditionField) => {
+    if (!conditionField || typeof conditionField !== 'string') return { fieldScope: 'body', customField: '' };
+    const s = conditionField.trim();
+    if (s.startsWith('body.')) return { fieldScope: 'body', customField: s.slice(5) };
+    if (s.startsWith('header.')) return { fieldScope: 'header', customField: s.slice(7) };
+    if (s.startsWith('query.')) return { fieldScope: 'query', customField: s.slice(6) };
+    if (s.startsWith('route.')) return { fieldScope: 'route', customField: s.slice(6) };
+    if (s.startsWith('cookie.')) return { fieldScope: 'cookie', customField: s.slice(7) };
+    if (s.toLowerCase() === 'method') return { fieldScope: 'method', customField: '' };
+    if (s.toLowerCase() === 'path') return { fieldScope: 'path', customField: '' };
+    return { fieldScope: 'body', customField: s };
+  };
+
+  // Build ConditionField (for API) from FieldScope + CustomField
+  const buildConditionField = (fieldScope, customField) => {
+    const scope = (fieldScope || 'body').toLowerCase();
+    const custom = (customField || '').trim();
+    if (scope === 'method') return 'method';
+    if (scope === 'path') return 'path';
+    if (scope === 'body') return custom ? `body.${custom}` : 'body';
+    if (scope === 'header') return custom ? `header.${custom}` : 'header.';
+    if (scope === 'query') return custom ? `query.${custom}` : 'query.';
+    if (scope === 'route') return custom ? `route.${custom}` : 'route.';
+    if (scope === 'cookie') return custom ? `cookie.${custom}` : 'cookie.';
+    return custom ? `body.${custom}` : 'body';
   };
 
   const emptySequenceItem = {
@@ -174,19 +203,28 @@ export default function MockManagementPage() {
     '#64748b', '#78716c', '#000000'
   ];
 
-  const conditionFieldSuggestions = [
-    { label: 'header.Authorization', value: 'header.Authorization' },
-    { label: 'header.Content-Type', value: 'header.Content-Type' },
-    { label: 'header.X-Api-Key', value: 'header.X-Api-Key' },
-    { label: 'query.page', value: 'query.page' },
-    { label: 'query.limit', value: 'query.limit' },
-    { label: 'query.search', value: 'query.search' },
-    { label: 'body.id', value: 'body.id' },
-    { label: 'body.type', value: 'body.type' },
-    { label: 'body.status', value: 'body.status' },
-    { label: 'method', value: 'method' },
-    { label: 'path', value: 'path' }
+  const fieldScopeOptions = [
+    { label: 'Body', value: 'body' },
+    { label: 'Header', value: 'header' },
+    { label: 'Query parameter', value: 'query' },
+    { label: 'Route parameter', value: 'route' },
+    { label: 'Method', value: 'method' },
+    { label: 'Path', value: 'path' },
+    { label: 'Cookie', value: 'cookie' }
   ];
+
+  const getCustomFieldPlaceholder = (fieldScope) => {
+    switch ((fieldScope || '').toLowerCase()) {
+      case 'body': return 'e.g. data.name, items[0].id';
+      case 'header': return 'e.g. Authorization, X-Api-Key';
+      case 'query': return 'e.g. page, filter';
+      case 'route': return 'e.g. id, reference';
+      case 'method': return 'N/A';
+      case 'path': return 'N/A';
+      case 'cookie': return 'e.g. sessionId';
+      default: return 'Field name or path';
+    }
+  };
 
   useEffect(() => {
     loadCollections();
@@ -563,6 +601,12 @@ export default function MockManagementPage() {
       // Clean up sequence items ordering before save; ensure folderId is null when uncategorized
       const mockToSave = { ...mock };
       mockToSave.folderId = mock.folderId ?? null;
+      if (mockToSave.rules) {
+        mockToSave.rules = mockToSave.rules.map((r) => {
+          const { fieldScope, customField, ...rest } = r;
+          return { ...rest, conditionField: buildConditionField(fieldScope, customField) };
+        });
+      }
       if (mockToSave.sequenceItems) {
         mockToSave.sequenceItems = mockToSave.sequenceItems.map((item, idx) => ({
           ...item,
@@ -606,7 +650,11 @@ export default function MockManagementPage() {
     try {
       // Fetch full mock details (with rules and sequence items)
       const fullMock = await mockService.getMock(mockRow.id);
-      setMock({ ...fullMock });
+      const rulesWithScope = (fullMock.rules || []).map((r) => ({
+        ...r,
+        ...parseConditionField(r.conditionField)
+      }));
+      setMock({ ...fullMock, rules: rulesWithScope });
       setIsEditMode(true);
       setActiveTabIndex(0);
       setShowTemplateHelp(false);
@@ -966,21 +1014,32 @@ export default function MockManagementPage() {
           </div>
 
           <div className="grid">
-            <div className="col-12 md:col-4">
+            <div className="col-12 md:col-2">
               <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Condition Field</label>
+                <label className="text-sm font-medium mb-1 block">Field Scope</label>
                 <Dropdown
-                  value={rule.conditionField}
-                  options={conditionFieldSuggestions}
-                  onChange={(e) => updateRule(index, 'conditionField', e.value)}
-                  editable
-                  placeholder="e.g., header.Authorization"
+                  value={rule.fieldScope ?? 'body'}
+                  options={fieldScopeOptions}
+                  onChange={(e) => updateRule(index, 'fieldScope', e.value)}
                   className="w-full"
                   style={{ fontSize: '0.85rem' }}
                 />
               </div>
             </div>
             <div className="col-12 md:col-3">
+              <div className="field mb-2">
+                <label className="text-sm font-medium mb-1 block">Custom Field</label>
+                <InputText
+                  value={rule.customField ?? ''}
+                  onChange={(e) => updateRule(index, 'customField', e.target.value)}
+                  placeholder={getCustomFieldPlaceholder(rule.fieldScope)}
+                  disabled={rule.fieldScope === 'method' || rule.fieldScope === 'path'}
+                  className="w-full"
+                  style={{ fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+            <div className="col-12 md:col-2">
               <div className="field mb-2">
                 <label className="text-sm font-medium mb-1 block">Operator</label>
                 <Dropdown

@@ -17,15 +17,16 @@ public class RuleEvaluator : IRuleEvaluator
         _logger = logger;
     }
 
-    public MockResponseRule? Evaluate(IEnumerable<MockResponseRule> rules, HttpRequest request, string? requestBody)
+    public MockResponseRule? Evaluate(IEnumerable<MockResponseRule> rules, HttpRequest request, string? requestBody, string? matchedRouteTemplate = null, string? requestPath = null)
     {
         var orderedRules = rules.OrderBy(r => r.Priority);
+        var routeParams = ExtractRouteParameters(matchedRouteTemplate, requestPath);
 
         foreach (var rule in orderedRules)
         {
             try
             {
-                var fieldValue = ExtractFieldValue(rule.ConditionField, request, requestBody);
+                var fieldValue = ExtractFieldValue(rule.ConditionField, request, requestBody, routeParams);
                 var matches = EvaluateCondition(fieldValue, rule.ConditionOperator, rule.ConditionValue);
 
                 if (matches)
@@ -55,8 +56,10 @@ public class RuleEvaluator : IRuleEvaluator
     /// - "body.propertyPath" → JSON body property (supports nested: body.user.name)
     /// - "method" → HTTP method
     /// - "path" → Request path
+    /// - "route.paramName" → Route template parameter (requires routeParams from matched mock)
+    /// - "cookie.name" → Request cookie value
     /// </summary>
-    private static string? ExtractFieldValue(string conditionField, HttpRequest request, string? requestBody)
+    private static string? ExtractFieldValue(string conditionField, HttpRequest request, string? requestBody, IReadOnlyDictionary<string, string>? routeParams)
     {
         if (string.IsNullOrEmpty(conditionField))
             return null;
@@ -101,7 +104,63 @@ public class RuleEvaluator : IRuleEvaluator
             return request.Path.Value;
         }
 
+        // route.id (from matched route template parameters)
+        if (conditionField.StartsWith("route.", StringComparison.OrdinalIgnoreCase))
+        {
+            var paramName = conditionField[6..];
+            return routeParams != null && routeParams.TryGetValue(paramName, out var value) ? value : null;
+        }
+
+        // cookie.sessionId
+        if (conditionField.StartsWith("cookie.", StringComparison.OrdinalIgnoreCase))
+        {
+            var cookieName = conditionField[7..];
+            return request.Cookies.TryGetValue(cookieName, out var value) ? value : null;
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// Extracts route parameters by matching requestPath against the route template (e.g. /api/users/{id}).
+    /// Returns a dictionary of parameter name to value, or null if template/path is missing or no match.
+    /// </summary>
+    private static IReadOnlyDictionary<string, string>? ExtractRouteParameters(string? routeTemplate, string? requestPath)
+    {
+        if (string.IsNullOrEmpty(routeTemplate) || string.IsNullOrEmpty(requestPath))
+            return null;
+
+        // Find parameter names: {id}, {postId}, etc.
+        var paramNames = new List<string>();
+        var paramRegex = new Regex(@"\{(\w+)\}");
+        var match = paramRegex.Match(routeTemplate);
+        while (match.Success)
+        {
+            if (!paramNames.Contains(match.Groups[1].Value))
+                paramNames.Add(match.Groups[1].Value);
+            match = match.NextMatch();
+        }
+
+        if (paramNames.Count == 0)
+            return null;
+
+        // Build regex: escape literal parts and replace \{param\} with (?<param>[^/]+)
+        var pattern = Regex.Escape(routeTemplate);
+        pattern = Regex.Replace(pattern, @"\\\{(\w+)\\\}", "(?<$1>[^/]+)");
+        pattern = "^" + pattern + "$";
+
+        var routeRegex = new Regex(pattern, RegexOptions.Compiled);
+        var pathMatch = routeRegex.Match(requestPath);
+        if (!pathMatch.Success)
+            return null;
+
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in paramNames)
+        {
+            if (pathMatch.Groups.TryGetValue(name, out var group) && group.Success)
+                result[name] = group.Value;
+        }
+        return result;
     }
 
     /// <summary>
