@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Mocklab.App.Data;
 
@@ -10,9 +11,11 @@ using Mocklab.App.Data;
 namespace Mocklab.App.Data.Migrations
 {
     [DbContext(typeof(MocklabDbContext))]
-    partial class MocklabDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260221005224_AddKeyValueEntriesTable")]
+    partial class AddKeyValueEntriesTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");

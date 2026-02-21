@@ -50,8 +50,10 @@ public class MockAdminController(
         return Ok(mocks);
     }
 
+    private const string KeyValueOwnerTypeMockResponseRule = "MockResponseRule";
+
     /// <summary>
-    /// Get a specific mock response with rules and sequence items
+    /// Get a specific mock response with rules and sequence items (rules include responseHeaders from KeyValueEntry).
     /// </summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetMock(int id)
@@ -64,6 +66,21 @@ public class MockAdminController(
         if (mock == null)
         {
             return NotFound(new { Error = "Mock response not found" });
+        }
+
+        var ruleIds = mock.Rules.Select(r => r.Id).ToList();
+        if (ruleIds.Count > 0)
+        {
+            var headerEntries = await _dbContext.KeyValueEntries
+                .Where(k => k.OwnerType == KeyValueOwnerTypeMockResponseRule && ruleIds.Contains(k.OwnerId))
+                .ToListAsync();
+            var headersByRuleId = headerEntries
+                .GroupBy(k => k.OwnerId)
+                .ToDictionary(g => g.Key, g => g.Select(e => new ResponseHeaderItem { Key = e.Key, Value = e.Value }).ToList());
+            foreach (var rule in mock.Rules)
+            {
+                rule.ResponseHeaders = headersByRuleId.TryGetValue(rule.Id, out var list) ? list : new List<ResponseHeaderItem>();
+            }
         }
 
         return Ok(mock);
@@ -92,6 +109,29 @@ public class MockAdminController(
 
         _dbContext.MockResponses.Add(mockResponse);
         await _dbContext.SaveChangesAsync();
+
+        if (mockResponse.Rules != null)
+        {
+            foreach (var rule in mockResponse.Rules)
+            {
+                var headers = rule.ResponseHeaders;
+                if (headers != null && headers.Count > 0)
+                {
+                    foreach (var h in headers)
+                    {
+                        if (string.IsNullOrWhiteSpace(h.Key)) continue;
+                        _dbContext.KeyValueEntries.Add(new KeyValueEntry
+                        {
+                            OwnerType = KeyValueOwnerTypeMockResponseRule,
+                            OwnerId = rule.Id,
+                            Key = h.Key.Trim(),
+                            Value = h.Value ?? string.Empty
+                        });
+                    }
+                }
+            }
+            await _dbContext.SaveChangesAsync();
+        }
 
         _logger.LogInformation("New mock response added: Id={Id}, Route={Route}",
             mockResponse.Id, mockResponse.Route);
@@ -145,9 +185,18 @@ public class MockAdminController(
         existingMock.IsActive = mockResponse.IsActive;
         existingMock.UpdatedAt = DateTime.UtcNow;
 
-        // Update rules: delete existing and recreate
+        // Update rules: delete existing KeyValueEntries for those rules, then delete rules and recreate
         if (mockResponse.Rules != null)
         {
+            var existingRuleIds = existingMock.Rules.Select(r => r.Id).ToList();
+            if (existingRuleIds.Count > 0)
+            {
+                var toRemove = await _dbContext.KeyValueEntries
+                    .Where(k => k.OwnerType == KeyValueOwnerTypeMockResponseRule && existingRuleIds.Contains(k.OwnerId))
+                    .ToListAsync();
+                _dbContext.KeyValueEntries.RemoveRange(toRemove);
+            }
+
             _dbContext.MockResponseRules.RemoveRange(existingMock.Rules);
             foreach (var rule in mockResponse.Rules)
             {
@@ -170,6 +219,47 @@ public class MockAdminController(
         }
 
         await _dbContext.SaveChangesAsync();
+
+        // Persist response headers for each rule (KeyValueEntry)
+        if (mockResponse.Rules != null)
+        {
+            for (var i = 0; i < existingMock.Rules.Count; i++)
+            {
+                var rule = existingMock.Rules.ElementAt(i);
+                var headers = i < mockResponse.Rules.Count ? mockResponse.Rules.ElementAt(i).ResponseHeaders : null;
+                if (headers != null && headers.Count > 0)
+                {
+                    foreach (var h in headers)
+                    {
+                        if (string.IsNullOrWhiteSpace(h.Key)) continue;
+                        _dbContext.KeyValueEntries.Add(new KeyValueEntry
+                        {
+                            OwnerType = KeyValueOwnerTypeMockResponseRule,
+                            OwnerId = rule.Id,
+                            Key = h.Key.Trim(),
+                            Value = h.Value ?? string.Empty
+                        });
+                    }
+                }
+            }
+            await _dbContext.SaveChangesAsync();
+        }
+
+        // Populate ResponseHeaders on returned rules (same as GetMock)
+        var ruleIds = existingMock.Rules.Select(r => r.Id).ToList();
+        if (ruleIds.Count > 0)
+        {
+            var headerEntries = await _dbContext.KeyValueEntries
+                .Where(k => k.OwnerType == KeyValueOwnerTypeMockResponseRule && ruleIds.Contains(k.OwnerId))
+                .ToListAsync();
+            var headersByRuleId = headerEntries
+                .GroupBy(k => k.OwnerId)
+                .ToDictionary(g => g.Key, g => g.Select(e => new ResponseHeaderItem { Key = e.Key, Value = e.Value }).ToList());
+            foreach (var rule in existingMock.Rules)
+            {
+                rule.ResponseHeaders = headersByRuleId.TryGetValue(rule.Id, out var list) ? list : new List<ResponseHeaderItem>();
+            }
+        }
 
         _logger.LogInformation("Mock response updated: Id={Id}, Rules={RuleCount}, SequenceItems={SeqCount}",
             id, existingMock.Rules.Count, existingMock.SequenceItems.Count);

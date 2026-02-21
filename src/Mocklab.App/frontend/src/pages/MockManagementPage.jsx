@@ -41,6 +41,7 @@ export default function MockManagementPage() {
   const [openApiLoading, setOpenApiLoading] = useState(false);
   const [showTemplateHelp, setShowTemplateHelp] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [activeRuleSubTab, setActiveRuleSubTab] = useState({});
   const [treeSelectionKey, setTreeSelectionKey] = useState('all');
   const [treeSelectionData, setTreeSelectionData] = useState({ type: 'all' });
   const [folderDialog, setFolderDialog] = useState(false);
@@ -115,7 +116,8 @@ export default function MockManagementPage() {
     statusCode: 200,
     responseBody: '',
     contentType: 'application/json',
-    priority: 0
+    priority: 0,
+    responseHeaders: []
   };
 
   // Parse ConditionField (from API) into FieldScope + CustomField for UI
@@ -211,6 +213,18 @@ export default function MockManagementPage() {
     { label: 'Method', value: 'method' },
     { label: 'Path', value: 'path' },
     { label: 'Cookie', value: 'cookie' }
+  ];
+
+  const commonHeaderOptions = [
+    { label: 'Content-Type', value: 'Content-Type' },
+    { label: 'Authorization', value: 'Authorization' },
+    { label: 'Cache-Control', value: 'Cache-Control' },
+    { label: 'X-Request-Id', value: 'X-Request-Id' },
+    { label: 'Location', value: 'Location' },
+    { label: 'ETag', value: 'ETag' },
+    { label: 'X-RateLimit-Limit', value: 'X-RateLimit-Limit' },
+    { label: 'X-RateLimit-Remaining', value: 'X-RateLimit-Remaining' },
+    { label: 'Access-Control-Allow-Origin', value: 'Access-Control-Allow-Origin' }
   ];
 
   const getCustomFieldPlaceholder = (fieldScope) => {
@@ -584,6 +598,7 @@ export default function MockManagementPage() {
   const hideDialog = () => {
     setMockDialog(false);
     setActiveTabIndex(0);
+    setActiveRuleSubTab({});
   };
 
   const saveMock = async () => {
@@ -604,7 +619,11 @@ export default function MockManagementPage() {
       if (mockToSave.rules) {
         mockToSave.rules = mockToSave.rules.map((r) => {
           const { fieldScope, customField, ...rest } = r;
-          return { ...rest, conditionField: buildConditionField(fieldScope, customField) };
+          const rulePayload = { ...rest, conditionField: buildConditionField(fieldScope, customField) };
+          rulePayload.responseHeaders = Array.isArray(r.responseHeaders)
+            ? r.responseHeaders.filter((h) => h && (h.key || '').trim()).map((h) => ({ key: (h.key || '').trim(), value: h.value || '' }))
+            : [];
+          return rulePayload;
         });
       }
       if (mockToSave.sequenceItems) {
@@ -635,6 +654,7 @@ export default function MockManagementPage() {
       setMockDialog(false);
       setMock(emptyMock);
       setActiveTabIndex(0);
+      setActiveRuleSubTab({});
       loadMocks();
     } catch (error) {
       toast.current.show({
@@ -652,7 +672,8 @@ export default function MockManagementPage() {
       const fullMock = await mockService.getMock(mockRow.id);
       const rulesWithScope = (fullMock.rules || []).map((r) => ({
         ...r,
-        ...parseConditionField(r.conditionField)
+        ...parseConditionField(r.conditionField),
+        responseHeaders: Array.isArray(r.responseHeaders) ? r.responseHeaders.map((h) => ({ key: h.key || '', value: h.value || '' })) : []
       }));
       setMock({ ...fullMock, rules: rulesWithScope });
       setIsEditMode(true);
@@ -841,6 +862,33 @@ export default function MockManagementPage() {
     setMock(_mock);
   };
 
+  const addRuleHeader = (ruleIndex) => {
+    const _mock = { ...mock };
+    const rule = _mock.rules[ruleIndex];
+    const headers = Array.isArray(rule.responseHeaders) ? [...rule.responseHeaders] : [];
+    headers.push({ key: '', value: '' });
+    _mock.rules = _mock.rules.map((r, i) => i === ruleIndex ? { ...r, responseHeaders: headers } : r);
+    setMock(_mock);
+  };
+
+  const removeRuleHeader = (ruleIndex, headerIndex) => {
+    const _mock = { ...mock };
+    const rule = _mock.rules[ruleIndex];
+    const headers = Array.isArray(rule.responseHeaders) ? rule.responseHeaders.filter((_, j) => j !== headerIndex) : [];
+    _mock.rules = _mock.rules.map((r, i) => i === ruleIndex ? { ...r, responseHeaders: headers } : r);
+    setMock(_mock);
+  };
+
+  const updateRuleHeader = (ruleIndex, headerIndex, field, value) => {
+    const _mock = { ...mock };
+    const rule = _mock.rules[ruleIndex];
+    const headers = Array.isArray(rule.responseHeaders) ? [...rule.responseHeaders] : [];
+    if (!headers[headerIndex]) headers[headerIndex] = { key: '', value: '' };
+    headers[headerIndex] = { ...headers[headerIndex], [field]: value };
+    _mock.rules = _mock.rules.map((r, i) => i === ruleIndex ? { ...r, responseHeaders: headers } : r);
+    setMock(_mock);
+  };
+
   // ========== Sequence Helpers ==========
   const addSequenceItem = () => {
     const _mock = { ...mock };
@@ -1013,115 +1061,151 @@ export default function MockManagementPage() {
             <Button icon="pi pi-trash" rounded text severity="danger" size="small" onClick={() => removeRule(index)} tooltip="Remove Rule" />
           </div>
 
-          <div className="grid">
-            <div className="col-12 md:col-2">
-              <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Field Scope</label>
-                <Dropdown
-                  value={rule.fieldScope ?? 'body'}
-                  options={fieldScopeOptions}
-                  onChange={(e) => updateRule(index, 'fieldScope', e.value)}
-                  className="w-full"
-                  style={{ fontSize: '0.85rem' }}
-                />
+          <TabView
+            activeIndex={activeRuleSubTab[index] ?? 0}
+            onTabChange={(e) => setActiveRuleSubTab((prev) => ({ ...prev, [index]: e.index }))}
+          >
+            <TabPanel header="Status & Body" leftIcon="pi pi-file mr-1">
+              <div className="grid">
+                <div className="col-12 md:col-3">
+                  <div className="field mb-2">
+                    <label className="text-sm font-medium mb-1 block">Status Code</label>
+                    <Dropdown
+                      value={rule.statusCode}
+                      options={statusCodeOptions}
+                      onChange={(e) => updateRule(index, 'statusCode', e.value)}
+                      className="w-full"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <div className="col-12 md:col-4">
+                  <div className="field mb-2">
+                    <label className="text-sm font-medium mb-1 block">Content Type</label>
+                    <Dropdown
+                      value={rule.contentType}
+                      options={contentTypeOptions}
+                      onChange={(e) => updateRule(index, 'contentType', e.value)}
+                      editable
+                      className="w-full"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="field mb-0">
+                    <label className="text-sm font-medium mb-1 block">Response Body</label>
+                    <InputTextarea
+                      value={rule.responseBody || ''}
+                      onChange={(e) => updateRule(index, 'responseBody', e.target.value)}
+                      rows={3}
+                      autoResize
+                      style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                      className="w-full"
+                      placeholder='{"error": "Unauthorized"}'
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="col-12 md:col-3">
-              <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Custom Field</label>
-                <InputText
-                  value={rule.customField ?? ''}
-                  onChange={(e) => updateRule(index, 'customField', e.target.value)}
-                  placeholder={getCustomFieldPlaceholder(rule.fieldScope)}
-                  disabled={rule.fieldScope === 'method' || rule.fieldScope === 'path'}
-                  className="w-full"
-                  style={{ fontSize: '0.85rem' }}
-                />
-              </div>
-            </div>
-            <div className="col-12 md:col-2">
-              <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Operator</label>
-                <Dropdown
-                  value={rule.conditionOperator}
-                  options={operatorOptions}
-                  onChange={(e) => updateRule(index, 'conditionOperator', e.value)}
-                  className="w-full"
-                  style={{ fontSize: '0.85rem' }}
-                />
-              </div>
-            </div>
-            <div className="col-12 md:col-3">
-              <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Value</label>
-                <InputText
-                  value={rule.conditionValue || ''}
-                  onChange={(e) => updateRule(index, 'conditionValue', e.target.value)}
-                  placeholder="Match value"
-                  disabled={rule.conditionOperator === 'exists' || rule.conditionOperator === 'notExists'}
-                  className="w-full"
-                  style={{ fontSize: '0.85rem' }}
-                />
-              </div>
-            </div>
-            <div className="col-12 md:col-2">
-              <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Priority</label>
-                <InputNumber
-                  value={rule.priority}
-                  onValueChange={(e) => updateRule(index, 'priority', e.value ?? 0)}
-                  min={0}
-                  max={999}
-                  className="w-full"
-                  inputStyle={{ fontSize: '0.85rem' }}
-                />
-              </div>
-            </div>
-          </div>
+            </TabPanel>
 
-          <Divider className="my-2" />
+            <TabPanel header="Headers" leftIcon="pi pi-list mr-1">
+              <p className="text-sm text-color-secondary mt-0 mb-2">Response headers when this rule matches. Key can be selected from common headers or entered as custom.</p>
+              <div className="flex flex-column gap-2">
+                {(rule.responseHeaders || []).map((h, hi) => (
+                  <div key={hi} className="flex align-items-center gap-2 flex-wrap">
+                    <Dropdown
+                      value={h.key || ''}
+                      options={commonHeaderOptions}
+                      onChange={(e) => updateRuleHeader(index, hi, 'key', e.value ?? '')}
+                      placeholder="Header name"
+                      editable
+                      className="flex-grow-1"
+                      style={{ minWidth: '10rem' }}
+                    />
+                    <InputText
+                      value={h.value || ''}
+                      onChange={(e) => updateRuleHeader(index, hi, 'value', e.target.value)}
+                      placeholder="Value"
+                      className="flex-grow-1"
+                      style={{ minWidth: '10rem' }}
+                    />
+                    <Button icon="pi pi-trash" rounded text severity="danger" size="small" onClick={() => removeRuleHeader(index, hi)} tooltip="Remove header" />
+                  </div>
+                ))}
+                <Button label="Add header" icon="pi pi-plus" size="small" outlined onClick={() => addRuleHeader(index)} />
+              </div>
+            </TabPanel>
 
-          <div className="grid">
-            <div className="col-12 md:col-3">
-              <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Status Code</label>
-                <Dropdown
-                  value={rule.statusCode}
-                  options={statusCodeOptions}
-                  onChange={(e) => updateRule(index, 'statusCode', e.value)}
-                  className="w-full"
-                  style={{ fontSize: '0.85rem' }}
-                />
+            <TabPanel header="Rules" leftIcon="pi pi-filter mr-1">
+              <p className="text-sm text-color-secondary mt-0 mb-2">Condition that determines when this rule applies.</p>
+              <div className="grid">
+                <div className="col-12 md:col-2">
+                  <div className="field mb-2">
+                    <label className="text-sm font-medium mb-1 block">Field Scope</label>
+                    <Dropdown
+                      value={rule.fieldScope ?? 'body'}
+                      options={fieldScopeOptions}
+                      onChange={(e) => updateRule(index, 'fieldScope', e.value)}
+                      className="w-full"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <div className="col-12 md:col-3">
+                  <div className="field mb-2">
+                    <label className="text-sm font-medium mb-1 block">Custom Field</label>
+                    <InputText
+                      value={rule.customField ?? ''}
+                      onChange={(e) => updateRule(index, 'customField', e.target.value)}
+                      placeholder={getCustomFieldPlaceholder(rule.fieldScope)}
+                      disabled={rule.fieldScope === 'method' || rule.fieldScope === 'path'}
+                      className="w-full"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <div className="col-12 md:col-2">
+                  <div className="field mb-2">
+                    <label className="text-sm font-medium mb-1 block">Operator</label>
+                    <Dropdown
+                      value={rule.conditionOperator}
+                      options={operatorOptions}
+                      onChange={(e) => updateRule(index, 'conditionOperator', e.value)}
+                      className="w-full"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <div className="col-12 md:col-3">
+                  <div className="field mb-2">
+                    <label className="text-sm font-medium mb-1 block">Value</label>
+                    <InputText
+                      value={rule.conditionValue || ''}
+                      onChange={(e) => updateRule(index, 'conditionValue', e.target.value)}
+                      placeholder="Match value"
+                      disabled={rule.conditionOperator === 'exists' || rule.conditionOperator === 'notExists'}
+                      className="w-full"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <div className="col-12 md:col-2">
+                  <div className="field mb-2">
+                    <label className="text-sm font-medium mb-1 block">Priority</label>
+                    <InputNumber
+                      value={rule.priority}
+                      onValueChange={(e) => updateRule(index, 'priority', e.value ?? 0)}
+                      min={0}
+                      max={999}
+                      className="w-full"
+                      inputStyle={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="col-12 md:col-4">
-              <div className="field mb-2">
-                <label className="text-sm font-medium mb-1 block">Content Type</label>
-                <Dropdown
-                  value={rule.contentType}
-                  options={contentTypeOptions}
-                  onChange={(e) => updateRule(index, 'contentType', e.value)}
-                  editable
-                  className="w-full"
-                  style={{ fontSize: '0.85rem' }}
-                />
-              </div>
-            </div>
-            <div className="col-12">
-              <div className="field mb-0">
-                <label className="text-sm font-medium mb-1 block">Response Body</label>
-                <InputTextarea
-                  value={rule.responseBody || ''}
-                  onChange={(e) => updateRule(index, 'responseBody', e.target.value)}
-                  rows={3}
-                  autoResize
-                  style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                  className="w-full"
-                  placeholder='{"error": "Unauthorized"}'
-                />
-              </div>
-            </div>
-          </div>
+            </TabPanel>
+          </TabView>
         </div>
       ))}
     </div>
@@ -1809,9 +1893,13 @@ export default function MockManagementPage() {
         breakpoints={{ '960px': '90vw', '641px': '95vw' }}
       >
         <TabView activeIndex={activeTabIndex} onTabChange={(e) => setActiveTabIndex(e.index)}>
-          {/* Tab 1: Basic Settings */}
+          {/* Tab 1: Basic Settings — Route definition + Default response */}
           <TabPanel header="Basic" leftIcon="pi pi-cog mr-2">
             <div className="grid">
+              {/* Section 1: Route definition */}
+              <div className="col-12">
+                <h4 className="mt-0 mb-2 font-medium text-color-secondary">Route definition</h4>
+              </div>
               <div className="col-12 md:col-6">
                 <div className="field">
                   <label htmlFor="httpMethod">HTTP Method <span className="text-red-500">*</span></label>
@@ -1824,20 +1912,6 @@ export default function MockManagementPage() {
                   />
                 </div>
               </div>
-
-              <div className="col-12 md:col-6">
-                <div className="field">
-                  <label htmlFor="statusCode">Status Code <span className="text-red-500">*</span></label>
-                  <Dropdown
-                    id="statusCode"
-                    value={mock?.statusCode || 200}
-                    options={statusCodeOptions}
-                    onChange={(e) => onInputChange(e, 'statusCode')}
-                    placeholder="Select status code"
-                  />
-                </div>
-              </div>
-
               <div className="col-12 md:col-6">
                 <div className="field">
                   <label htmlFor="delayMs">Response Delay (ms)</label>
@@ -1856,7 +1930,41 @@ export default function MockManagementPage() {
                   <small>Optional. Simulate network latency (0-30000ms)</small>
                 </div>
               </div>
-
+              <div className="col-12">
+                <div className="field">
+                  <label htmlFor="route">Route Pattern <span className="text-red-500">*</span></label>
+                  <InputText
+                    id="route"
+                    value={mock?.route || ''}
+                    onChange={(e) => onInputChange(e, 'route')}
+                    placeholder="e.g., /api/users/{id}"
+                    required
+                  />
+                  <small>Use {'{parameter}'} for path parameters</small>
+                </div>
+              </div>
+              <div className="col-12">
+                <div className="field">
+                  <label htmlFor="description">Description</label>
+                  <InputText
+                    id="description"
+                    value={mock?.description || ''}
+                    onChange={(e) => onInputChange(e, 'description')}
+                    placeholder="Brief description of this mock response"
+                  />
+                </div>
+              </div>
+              <div className="col-12 md:col-6">
+                <div className="field">
+                  <label htmlFor="queryString">Query Parameter</label>
+                  <InputText
+                    id="queryString"
+                    value={mock?.queryString || ''}
+                    onChange={(e) => onInputChange(e, 'queryString')}
+                    placeholder="e.g., ?page=1&size=10"
+                  />
+                </div>
+              </div>
               <div className="col-12 md:col-6">
                 <div className="field">
                   <label htmlFor="collectionId">Collection</label>
@@ -1875,7 +1983,6 @@ export default function MockManagementPage() {
                   />
                 </div>
               </div>
-
               <div className="col-12 md:col-6">
                 <div className="field">
                   <label htmlFor="folderId">Folder</label>
@@ -1898,33 +2005,39 @@ export default function MockManagementPage() {
                   <small>Optional. Leave as Uncategorized for no folder.</small>
                 </div>
               </div>
-
               <div className="col-12">
-                <div className="field">
-                  <label htmlFor="route">Route Pattern <span className="text-red-500">*</span></label>
-                  <InputText
-                    id="route"
-                    value={mock?.route || ''}
-                    onChange={(e) => onInputChange(e, 'route')}
-                    placeholder="e.g., /api/users/{id}"
-                    required
+                <div className="field-checkbox">
+                  <Checkbox
+                    inputId="isActive"
+                    checked={mock?.isActive || false}
+                    onChange={(e) => {
+                      let _mock = { ...mock };
+                      _mock.isActive = e.checked;
+                      setMock(_mock);
+                    }}
                   />
-                  <small>Use {'{parameter}'} for path parameters</small>
+                  <label htmlFor="isActive" className="ml-2 font-semibold">Active</label>
                 </div>
               </div>
 
+              {/* Section 2: Default response (when no rule matches) */}
+              <div className="col-12 mt-3">
+                <Divider />
+                <h4 className="mb-2 font-medium text-color-secondary">Default response</h4>
+                <p className="text-sm text-color-secondary mt-0 mb-2">Returned when no rule matches.</p>
+              </div>
               <div className="col-12 md:col-6">
                 <div className="field">
-                  <label htmlFor="queryString">Query String</label>
-                  <InputText
-                    id="queryString"
-                    value={mock?.queryString || ''}
-                    onChange={(e) => onInputChange(e, 'queryString')}
-                    placeholder="e.g., ?page=1&size=10"
+                  <label htmlFor="statusCode">Status Code <span className="text-red-500">*</span></label>
+                  <Dropdown
+                    id="statusCode"
+                    value={mock?.statusCode || 200}
+                    options={statusCodeOptions}
+                    onChange={(e) => onInputChange(e, 'statusCode')}
+                    placeholder="Select status code"
                   />
                 </div>
               </div>
-
               <div className="col-12 md:col-6">
                 <div className="field">
                   <label htmlFor="contentType">Content Type</label>
@@ -1938,19 +2051,6 @@ export default function MockManagementPage() {
                   />
                 </div>
               </div>
-
-              <div className="col-12">
-                <div className="field">
-                  <label htmlFor="description">Description</label>
-                  <InputText
-                    id="description"
-                    value={mock?.description || ''}
-                    onChange={(e) => onInputChange(e, 'description')}
-                    placeholder="Brief description of this mock response"
-                  />
-                </div>
-              </div>
-
               <div className="col-12">
                 <div className="field">
                   <label htmlFor="requestBody">Request Body (optional)</label>
@@ -1964,7 +2064,6 @@ export default function MockManagementPage() {
                   />
                 </div>
               </div>
-
               <div className="col-12">
                 <div className="field">
                   <label htmlFor="responseBody">Response Body <span className="text-red-500">*</span></label>
@@ -2004,21 +2103,6 @@ export default function MockManagementPage() {
                       <code>{'{{$request.header.headerName}}'}</code> - Header
                     </div>
                   )}
-                </div>
-              </div>
-
-              <div className="col-12">
-                <div className="field-checkbox">
-                  <Checkbox
-                    inputId="isActive"
-                    checked={mock?.isActive || false}
-                    onChange={(e) => {
-                      let _mock = { ...mock };
-                      _mock.isActive = e.checked;
-                      setMock(_mock);
-                    }}
-                  />
-                  <label htmlFor="isActive" className="ml-2 font-semibold">Active</label>
                 </div>
               </div>
             </div>
