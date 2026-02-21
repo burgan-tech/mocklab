@@ -35,6 +35,7 @@ public class MocklabDbContext : DbContext
     public DbSet<MockFolder> MockFolders { get; set; }
     public DbSet<MockResponseRule> MockResponseRules { get; set; }
     public DbSet<MockResponseSequenceItem> MockResponseSequenceItems { get; set; }
+    public DbSet<KeyValueEntry> KeyValueEntries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -129,6 +130,15 @@ public class MocklabDbContext : DbContext
 
             entity.HasIndex(s => new { s.MockResponseId, s.Order })
                 .HasDatabaseName("IX_MockResponseSequenceItems_MockResponseId_Order");
+        });
+
+        // Configure KeyValueEntry (generic key-value for MockResponseRule headers, etc.)
+        modelBuilder.Entity<KeyValueEntry>(entity =>
+        {
+            entity.ToTable("KeyValueEntries", _schemaName);
+
+            entity.HasIndex(k => new { k.OwnerType, k.OwnerId })
+                .HasDatabaseName("IX_KeyValueEntries_OwnerType_OwnerId");
         });
 
         // Note: Seed data removed - will be handled by MocklabApplicationExtensions

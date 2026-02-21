@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
 namespace Mocklab.App.Models;
@@ -49,6 +50,12 @@ public class MockResponseRule
     /// Priority order (lower number = higher priority)
     /// </summary>
     public int Priority { get; set; } = 0;
+
+    /// <summary>
+    /// Response headers when this rule matches. Not stored on this entity; populated from KeyValueEntry (OwnerType = "MockResponseRule") in API/runtime.
+    /// </summary>
+    [NotMapped]
+    public List<ResponseHeaderItem>? ResponseHeaders { get; set; }
 
     /// <summary>
     /// Navigation property

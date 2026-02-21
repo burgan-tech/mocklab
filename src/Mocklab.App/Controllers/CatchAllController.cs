@@ -79,6 +79,22 @@ public class CatchAllController(
         // Find matching mock response from database (with Rules and SequenceItems)
         var mockResponse = await FindMatchingMockResponse(requestMethod, requestPath, queryString, requestBody);
 
+        // Load response headers for rules (KeyValueEntry) so matched rule can apply them
+        if (mockResponse?.Rules.Count > 0)
+        {
+            var ruleIds = mockResponse.Rules.Select(r => r.Id).ToList();
+            var headerEntries = await _dbContext.KeyValueEntries
+                .Where(k => k.OwnerType == "MockResponseRule" && ruleIds.Contains(k.OwnerId))
+                .ToListAsync();
+            var headersByRuleId = headerEntries
+                .GroupBy(k => k.OwnerId)
+                .ToDictionary(g => g.Key, g => g.Select(e => new ResponseHeaderItem { Key = e.Key, Value = e.Value }).ToList());
+            foreach (var rule in mockResponse.Rules)
+            {
+                rule.ResponseHeaders = headersByRuleId.TryGetValue(rule.Id, out var list) ? list : new List<ResponseHeaderItem>();
+            }
+        }
+
         IActionResult result;
         int responseStatusCode;
 
@@ -127,6 +143,14 @@ public class CatchAllController(
                     statusCode = matchedRule.StatusCode;
                     responseBody = matchedRule.ResponseBody;
                     contentType = matchedRule.ContentType;
+                    if (matchedRule.ResponseHeaders != null && matchedRule.ResponseHeaders.Count > 0)
+                    {
+                        foreach (var h in matchedRule.ResponseHeaders)
+                        {
+                            if (!string.IsNullOrWhiteSpace(h.Key))
+                                Response.Headers.Append(h.Key, h.Value ?? string.Empty);
+                        }
+                    }
                 }
             }
 
@@ -220,9 +244,7 @@ public class CatchAllController(
         string queryString,
         string? requestBody)
     {
-        var query = BuildMockQuery(method, queryString, requestBody)
-            .Include(m => m.Rules)
-            .Include(m => m.SequenceItems);
+        var query = BuildMockQuery(method, queryString, requestBody);
 
         //TODO: Consider use firstordefault instead of tolistasync, or return all matches instead of just the first one
         // First, try exact route match
@@ -243,7 +265,11 @@ public class CatchAllController(
     }
     private IQueryable<Models.MockResponse> BuildMockQuery(string method, string? queryString, string? requestBody)
     {
-        var query = _dbContext.MockResponses.AsQueryable().Where(m => m.IsActive && m.HttpMethod == method);
+        var query = _dbContext.MockResponses
+            .AsQueryable()
+            .Include(m => m.Rules)
+            .Include(m => m.SequenceItems)
+            .Where(m => m.IsActive && m.HttpMethod == method);
 
         if (!string.IsNullOrEmpty(queryString))
         {
