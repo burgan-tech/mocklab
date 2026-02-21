@@ -117,7 +117,7 @@ public class CatchAllController(
             // Step 2: Check for matching rules (only if NOT sequential)
             else if (mockResponse.Rules.Count > 0)
             {
-                var matchedRule = _ruleEvaluator.Evaluate(mockResponse.Rules, Request, requestBody);
+                var matchedRule = _ruleEvaluator.Evaluate(mockResponse.Rules, Request, requestBody, mockResponse.Route, requestPath);
                 if (matchedRule != null)
                 {
                     _logger.LogInformation(

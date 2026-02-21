@@ -172,15 +172,19 @@ Rules let a single mock endpoint return different responses based on the incomin
 }
 ```
 
-### Condition Fields
+### Condition Fields (FieldScope + CustomField)
 
-| Field Format | Source | Example |
-|---|---|---|
-| `header.HeaderName` | Request header | `header.Authorization`, `header.X-Api-Key` |
-| `query.paramName` | Query string parameter | `query.page`, `query.category` |
-| `body.propertyPath` | JSON body (dot-notation) | `body.amount`, `body.user.address.city` |
-| `method` | HTTP method | Matches against `GET`, `POST`, etc. |
-| `path` | Request path | Matches against the URL path |
+Rules target a value using a logical **condition field**. In the UI this is configured as **Field Scope** (where to look) plus **Custom Field** (path or key within that scope). The API stores a single `conditionField` string derived from both.
+
+| conditionField format | Field Scope | Custom Field | Description |
+|---|---|---|---|
+| `body.propertyPath` | Body | JSON path (dot-notation) | Request body, e.g. `body.amount`, `body.user.name` |
+| `header.HeaderName` | Header | Header name | Request header, e.g. `header.Authorization`, `header.X-Api-Key` |
+| `query.paramName` | Query parameter | Query key | Query string, e.g. `query.page`, `query.filter` |
+| `route.paramName` | Route parameter | Route param name | From mock route template (e.g. `/api/users/{id}` → `route.id`) |
+| `method` | Method | (none) | HTTP method: `GET`, `POST`, etc. |
+| `path` | Path | (none) | Full request path |
+| `cookie.name` | Cookie | Cookie name | Request cookie, e.g. `cookie.sessionId` |
 
 ### Condition Operators
 

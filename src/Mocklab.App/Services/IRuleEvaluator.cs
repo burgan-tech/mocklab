@@ -14,6 +14,8 @@ public interface IRuleEvaluator
     /// <param name="rules">The rules to evaluate, ordered by priority</param>
     /// <param name="request">The incoming HTTP request</param>
     /// <param name="requestBody">The request body (already read)</param>
+    /// <param name="matchedRouteTemplate">The mock's route template (e.g. /api/users/{id}) for route.* rule resolution</param>
+    /// <param name="requestPath">The request path (after prefix) for route parameter extraction</param>
     /// <returns>The matching rule, or null if no rule matches</returns>
-    MockResponseRule? Evaluate(IEnumerable<MockResponseRule> rules, HttpRequest request, string? requestBody);
+    MockResponseRule? Evaluate(IEnumerable<MockResponseRule> rules, HttpRequest request, string? requestBody, string? matchedRouteTemplate = null, string? requestPath = null);
 }
