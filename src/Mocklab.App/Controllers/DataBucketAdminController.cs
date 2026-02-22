@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Mocklab.App.Data;
@@ -61,6 +62,11 @@ public class DataBucketAdminController(MocklabDbContext dbContext, ILogger<DataB
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { Error = "Name is required" });
 
+        var dataJson = request.Data ?? "[]";
+        var validationError = ValidateDataJson(dataJson);
+        if (validationError != null)
+            return BadRequest(new { Error = validationError });
+
         var nameExists = await _dbContext.DataBuckets
             .AnyAsync(b => b.CollectionId == collectionId && b.Name == request.Name.Trim());
         if (nameExists)
@@ -71,7 +77,7 @@ public class DataBucketAdminController(MocklabDbContext dbContext, ILogger<DataB
             CollectionId = collectionId,
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
-            Data = request.Data ?? "[]"
+            Data = dataJson
         };
         _dbContext.DataBuckets.Add(bucket);
         await _dbContext.SaveChangesAsync();
@@ -93,6 +99,11 @@ public class DataBucketAdminController(MocklabDbContext dbContext, ILogger<DataB
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { Error = "Name is required" });
 
+        var dataJson = request.Data ?? "[]";
+        var validationError = ValidateDataJson(dataJson);
+        if (validationError != null)
+            return BadRequest(new { Error = validationError });
+
         var nameExists = await _dbContext.DataBuckets
             .AnyAsync(b => b.CollectionId == collectionId && b.Name == request.Name.Trim() && b.Id != bucketId);
         if (nameExists)
@@ -100,7 +111,7 @@ public class DataBucketAdminController(MocklabDbContext dbContext, ILogger<DataB
 
         bucket.Name = request.Name.Trim();
         bucket.Description = request.Description?.Trim();
-        bucket.Data = request.Data ?? "[]";
+        bucket.Data = dataJson;
         bucket.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
         _logger.LogInformation("Updated data bucket Id={Id}, CollectionId={CollectionId}", bucketId, collectionId);
@@ -122,6 +133,60 @@ public class DataBucketAdminController(MocklabDbContext dbContext, ILogger<DataB
         await _dbContext.SaveChangesAsync();
         _logger.LogInformation("Deleted data bucket Id={Id}, CollectionId={CollectionId}", bucketId, collectionId);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Export a single data bucket as JSON (full data for download).
+    /// </summary>
+    [HttpGet("{bucketId:int}/export")]
+    public async Task<IActionResult> ExportOne(int collectionId, int bucketId)
+    {
+        var bucket = await _dbContext.DataBuckets
+            .Where(b => b.CollectionId == collectionId && b.Id == bucketId)
+            .Select(b => new { b.Id, b.CollectionId, b.Name, b.Description, b.Data, b.CreatedAt, b.UpdatedAt })
+            .FirstOrDefaultAsync();
+        if (bucket == null)
+            return NotFound(new { Error = "Data bucket not found" });
+        return Ok(bucket);
+    }
+
+    /// <summary>
+    /// Export all data buckets for the collection as JSON (for download).
+    /// </summary>
+    [HttpGet("export")]
+    public async Task<IActionResult> ExportAll(int collectionId)
+    {
+        var exists = await _dbContext.MockCollections.AnyAsync(c => c.Id == collectionId);
+        if (!exists)
+            return NotFound(new { Error = "Collection not found" });
+
+        var buckets = await _dbContext.DataBuckets
+            .Where(b => b.CollectionId == collectionId)
+            .OrderBy(b => b.Name)
+            .Select(b => new { b.Id, b.CollectionId, b.Name, b.Description, b.Data, b.CreatedAt, b.UpdatedAt })
+            .ToListAsync();
+        return Ok(new { dataBuckets = buckets });
+    }
+
+    /// <summary>
+    /// Validates that the string is valid JSON (array or object). Returns error message or null.
+    /// </summary>
+    private static string? ValidateDataJson(string? data)
+    {
+        if (string.IsNullOrWhiteSpace(data))
+            return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(data);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Array && root.ValueKind != JsonValueKind.Object)
+                return "Data must be valid JSON (array or object).";
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            return "Data must be valid JSON (array or object). " + ex.Message;
+        }
     }
 }
 

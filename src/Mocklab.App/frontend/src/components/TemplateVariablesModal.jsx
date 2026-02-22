@@ -39,9 +39,15 @@ export function TemplateVariablesModal({ visible, onHide }) {
         </div>
 
         <div className="font-semibold mb-1">Data buckets (collection)</div>
-        <div className="surface-ground p-2 mb-3 border-round">
-          <code>{'{{ persons[0].name }}'}</code> or <code>{'{{ random_item("persons").name }}'}</code>
+        <p className="text-color-secondary text-xs mt-0 mb-1">
+          The variable name is the <strong>bucket name</strong> you set for the collection (e.g. &quot;persons&quot;, &quot;products&quot;). Manage buckets under Collections → Data Buckets.
+        </p>
+        <div className="surface-ground p-2 mb-1 border-round">
+          <code>{'{{ bucketName[0].field }}'}</code> or <code>{'{{ random_item("bucketName").field }}'}</code>
         </div>
+        <p className="text-color-secondary text-xs mt-0 mb-3">
+          For an <strong>array</strong> bucket, use index or <code>random_item("bucketName")</code>. For a <strong>single object</strong> bucket, <code>random_item("bucketName")</code> returns that object.
+        </p>
 
         <div className="font-semibold mb-1">Example (headers, request, helpers, loop)</div>
         <pre className="surface-ground p-2 border-round overflow-auto text-xs m-0" style={{ maxHeight: '14rem' }}>

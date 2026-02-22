@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import MockManagementPage from './pages/MockManagementPage';
 import RequestLogsPage from './pages/RequestLogsPage';
 import CollectionsPage from './pages/CollectionsPage';
+import DataBucketsPage from './pages/DataBucketsPage';
 
 // PrimeReact styles
 import 'primereact/resources/themes/lara-light-indigo/theme.css';
@@ -22,6 +23,7 @@ function App() {
             <Route index element={<MockManagementPage />} />
             <Route path="logs" element={<RequestLogsPage />} />
             <Route path="collections" element={<CollectionsPage />} />
+            <Route path="data-buckets/:collectionId" element={<DataBucketsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
