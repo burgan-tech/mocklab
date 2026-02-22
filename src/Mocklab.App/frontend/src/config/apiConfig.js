@@ -6,6 +6,8 @@ export const apiConfig = {
   adminLogsPath: '/_admin/logs',
   adminCollectionsPath: '/_admin/collections',
   adminFoldersPath: '/_admin/folders',
+  /** Base path for data-buckets API: use dataBucketsPath(collectionId) for list/create, append /:id for get/update/delete/export */
+  dataBucketsPath: (collectionId) => `/_admin/collections/${collectionId}/data-buckets`,
   timeout: 30000,
 };
 

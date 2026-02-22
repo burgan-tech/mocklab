@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
@@ -18,6 +19,7 @@ import { collectionService } from '../services/collectionService';
 import { mockService } from '../services/mockService';
 
 export default function CollectionsPage() {
+  const navigate = useNavigate();
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [collectionDialog, setCollectionDialog] = useState(false);
@@ -234,6 +236,7 @@ export default function CollectionsPage() {
 
   const actionBodyTemplate = (rowData) => (
     <div className="flex gap-2">
+      <Button icon="pi pi-database" rounded outlined className="p-button-sm" onClick={() => navigate(`/data-buckets/${rowData.id}`)} tooltip="Data Buckets" tooltipOptions={{ position: 'top' }} />
       <Button icon="pi pi-download" rounded outlined severity="info" className="p-button-sm" onClick={() => exportCollection(rowData)} tooltip="Export" tooltipOptions={{ position: 'top' }} />
       <Button icon="pi pi-pencil" rounded outlined className="p-button-sm" onClick={() => editCollection(rowData)} tooltip="Edit" tooltipOptions={{ position: 'top' }} />
       <Button icon="pi pi-trash" rounded outlined severity="danger" className="p-button-sm" onClick={() => openDeleteCollectionDialog(rowData)} tooltip="Delete" tooltipOptions={{ position: 'top' }} />
@@ -310,7 +313,7 @@ export default function CollectionsPage() {
           <Column field="description" header="Description" body={(rowData) => rowData.description || <span className="text-color-secondary">-</span>} style={{ minWidth: '14rem' }} />
           <Column field="mockCount" header="Mocks" sortable body={(rowData) => <Tag value={rowData.mockCount} severity={rowData.mockCount > 0 ? 'info' : 'secondary'} />} style={{ width: '7rem' }} />
           <Column field="createdAt" header="Created" sortable body={(rowData) => new Date(rowData.createdAt).toLocaleDateString('tr-TR')} style={{ width: '8rem' }} />
-          <Column body={actionBodyTemplate} exportable={false} style={{ width: '10rem' }} />
+          <Column body={actionBodyTemplate} exportable={false} style={{ width: '12rem' }} />
         </DataTable>
       </div>
 
