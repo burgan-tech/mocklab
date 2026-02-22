@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Mocklab.App.Constants;
 using Mocklab.App.Data;
 using Mocklab.App.Models;
@@ -56,10 +57,19 @@ public class MockImportService(
 
         var uri = new Uri(parsed.Url);
 
+        var method = (parsed.Method ?? "GET").Trim().ToUpperInvariant();
+        var route = (uri.AbsolutePath ?? "/").Trim();
+        var exists = await _dbContext.MockResponses.AnyAsync(m =>
+            m.CollectionId == null &&
+            (m.HttpMethod ?? "").Trim().ToUpperInvariant() == method &&
+            (m.Route ?? "").Trim() == route);
+        if (exists)
+            return ImportResult.Fail("A mock with the same HTTP method and route already exists (no collection).");
+
         var mock = new MockResponse
         {
-            HttpMethod = parsed.Method,
-            Route = uri.AbsolutePath,
+            HttpMethod = method,
+            Route = route,
             QueryString = string.IsNullOrEmpty(uri.Query) ? null : uri.Query,
             RequestBody = parsed.Body,
             StatusCode = (int)response.StatusCode,
@@ -123,13 +133,32 @@ public class MockImportService(
             return ImportResult.Fail("No API endpoints found in the OpenAPI specification.");
         }
 
-        // 3. Persist
-        _dbContext.MockResponses.AddRange(mocks);
+        var existingRows = await _dbContext.MockResponses
+            .Where(m => m.CollectionId == null)
+            .Select(m => new { m.HttpMethod, m.Route })
+            .ToListAsync();
+        var existingKeys = existingRows
+            .Select(x => ((x.HttpMethod ?? "").Trim().ToUpperInvariant(), (x.Route ?? "").Trim()))
+            .ToHashSet();
+        var seen = new HashSet<(string Method, string Route)>();
+        var toAdd = new List<MockResponse>();
+        foreach (var mock in mocks)
+        {
+            var method = (mock.HttpMethod ?? "").Trim().ToUpperInvariant();
+            var route = (mock.Route ?? "").Trim();
+            if (!seen.Add((method, route)) || existingKeys.Contains((method, route)))
+                continue;
+            mock.HttpMethod = method;
+            mock.Route = route;
+            toAdd.Add(mock);
+        }
+
+        _dbContext.MockResponses.AddRange(toAdd);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Imported {Count} mocks from OpenAPI specification.", mocks.Count);
+        _logger.LogInformation("Imported {Count} mocks from OpenAPI specification ({Skipped} duplicates skipped).", toAdd.Count, mocks.Count - toAdd.Count);
 
-        return ImportResult.MultipleMocks(mocks);
+        return ImportResult.MultipleMocks(toAdd);
     }
 
     // ═══════════════════════════════════════════════════════════════════

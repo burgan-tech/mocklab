@@ -32,6 +32,18 @@
 | `POST` | `/_admin/collections/{id}/export` | Export collection as JSON |
 | `POST` | `/_admin/collections/import` | Import collection from JSON |
 
+### Data Buckets (`/_admin/collections/{collectionId}/data-buckets`)
+
+Data buckets are named JSON datasets attached to a collection, for use in Scriban templates (e.g. `{{ persons[0].name }}`, `{{ random_item("persons") }}`).
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/_admin/collections/{id}/data-buckets` | List data buckets for the collection |
+| `GET` | `/_admin/collections/{id}/data-buckets/{bucketId}` | Get one bucket (includes `data` JSON) |
+| `POST` | `/_admin/collections/{id}/data-buckets` | Create a bucket (body: `name`, `description?`, `data?` JSON string) |
+| `PUT` | `/_admin/collections/{id}/data-buckets/{bucketId}` | Update a bucket |
+| `DELETE` | `/_admin/collections/{id}/data-buckets/{bucketId}` | Delete a bucket |
+
 ### Request Log Management (`/_admin/logs`)
 
 | Method | Endpoint | Description |
@@ -305,74 +317,94 @@ curl -X POST http://localhost:5000/_admin/mocks/sequence/reset-all
 
 ---
 
-## Dynamic Template Variables
+## Dynamic Template Variables (Scriban)
 
-Response bodies support template variables using the `{{$variable}}` syntax. Variables are processed at request time, generating fresh values on every call.
+Response bodies and rule response header values (when a rule matches) are processed with **Scriban**. You can use full Scriban syntax: `{{ expression }}` for output, `{{ for x in items }} ... {{ end }}`, `{{ if condition }} ... {{ else }} ... {{ end }}`, and any expression.
 
-### Built-in Variables
+**Backward compatibility:** Legacy `{{$variable}}` placeholders are still supported and are converted to Scriban automatically (e.g. `{{$randomUUID}}` → `{{ guid }}`).
 
-| Variable | Output Example | Description |
-|---|---|---|
-| `{{$randomUUID}}` | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` | Random UUID v4 |
-| `{{$timestamp}}` | `1708207800` | Unix timestamp (seconds) |
-| `{{$isoTimestamp}}` | `2026-02-19T08:30:00.0000000Z` | ISO 8601 timestamp |
-| `{{$randomInt}}` | `458231` | Random integer (1 - 1,000,000) |
-| `{{$randomInt(1,100)}}` | `73` | Random integer in range |
-| `{{$randomFloat}}` | `456.78` | Random float (2 decimal places) |
-| `{{$randomBool}}` | `true` or `false` | Random boolean |
-| `{{$randomName}}` | `Alice Johnson` | Random name from sample list |
-| `{{$randomEmail}}` | `bob.smith@mock.io` | Random email |
+### Template contract (what you can use)
 
-### Request Variables
+- **request:** `request.method`, `request.path`, `request.body`, `request.json` (parsed request body; null if not valid JSON), `request.query`, `request.headers`, `request.cookies`, `request.route`.
+- **headers (top-level):** Case-insensitive header access, e.g. `headers["x-correlation-id"]`, `headers["Authorization"]`. Use when the header might be missing: `headers["x-correlation-id"] | "default"` or null coalescing.
+- **helpers:** `helpers.guid()`, `helpers.rand_int(min, maxInclusive)`, `helpers.alphanum(length)`, `helpers.username()` (e.g. fast_tiger42), `helpers.email(domain?)` (default domain example.com).
 
-| Variable | Output Example | Description |
-|---|---|---|
-| `{{$request.path}}` | `/api/users/123` | Request path |
-| `{{$request.method}}` | `POST` | HTTP method |
-| `{{$request.body}}` | `{"key": "value"}` | Full request body |
-| `{{$request.query.paramName}}` | `electronics` | Specific query parameter |
-| `{{$request.header.headerName}}` | `Bearer token123` | Specific request header |
+### Helpers (recommended: `helpers.*`)
 
-### Example: Dynamic User Response
+| Expression | Description |
+|---|---|
+| `{{ helpers.guid() }}` | Random UUID v4 |
+| `{{ helpers.rand_int(1, 100) }}` | Random integer in [min, maxInclusive] |
+| `{{ helpers.alphanum(12) }}` | Random alphanumeric string (length 12) |
+| `{{ helpers.username() }}` | Random username (e.g. fast_tiger42) |
+| `{{ helpers.email() }}` or `{{ helpers.email("my.domain.com") }}` | Random email |
 
-Configure a mock's response body as:
+### Legacy global helpers (still supported)
+
+| Scriban | Description |
+|---|---|
+| `{{ guid }}`, `{{ random_int }}`, `{{ random_int 18 65 }}`, `{{ random_name }}`, `{{ random_email }}`, `{{ timestamp }}`, `{{ iso_timestamp }}`, `{{ now }}`, `{{ random_bool }}`, etc. | Same as before; see legacy docs. |
+
+### Request context
+
+| Expression | Description |
+|---|---|
+| `{{ request.method }}`, `{{ request.path }}`, `{{ request.body }}` | HTTP method, path, raw body |
+| `{{ request.json }}` | Parsed request body (object or null if invalid/empty JSON) |
+| `{{ request.query.page }}` or `{{ request.query["tier"] }}` | Query parameter |
+| `{{ request.headers["X-Api-Key"] }}` | Request header |
+| `{{ request.cookies.sessionId }}` | Request cookie |
+| `{{ request.route.id }}` | Route parameter (e.g. route `/api/users/{id}`) |
+
+### Top-level headers
+
+| Expression | Description |
+|---|---|
+| `{{ headers["x-correlation-id"] }}` | Header value (case-insensitive). Use `\| "default"` if missing. |
+
+### Data Buckets
+
+Collections can have **data buckets**: named JSON data. In templates, bucket names are exposed as variables. For arrays use `random_item("bucketName")`.
+
+Example: `{{ persons[0].name }}` or `{{ random_item("persons").name }}`.
+
+Data bucket API: `GET/POST /_admin/collections/{collectionId}/data-buckets`, `GET/PUT/DELETE /_admin/collections/{collectionId}/data-buckets/{bucketId}`.
+
+### Example: Full template (headers, request, helpers, loop)
 
 ```json
 {
-  "id": "{{$randomUUID}}",
-  "name": "{{$randomName}}",
-  "email": "{{$randomEmail}}",
-  "age": {{$randomInt(18,65)}},
-  "premium": {{$randomBool}},
-  "createdAt": "{{$isoTimestamp}}"
+  "correlationId": "{{ headers["x-correlation-id"] | helpers.guid() }}",
+  "path": "{{ request.path }}",
+  "isPremium": {{ request.query["tier"] == "premium" }},
+  "items": [
+    {{ for i in 0..2 }}
+      { "id": "{{ helpers.guid() }}", "amount": {{ helpers.rand_int(10, 500) }} }{{ if !for.last }},{{ end }}
+    {{ end }}
+  ],
+  "user": {
+    "username": "{{ helpers.username() }}",
+    "email": "{{ helpers.email() }}"
+  }
 }
 ```
 
-Each request produces different values:
-
-```bash
-curl http://localhost:5000/api/users/random
-# {"id":"42c178af-...","name":"Ivan Petrov","email":"rachel.green@sample.net","age":33,...}
-
-curl http://localhost:5000/api/users/random
-# {"id":"eb018745-...","name":"Laura Palmer","email":"charlie.brown@demo.dev","age":51,...}
-```
-
-### Example: Request Echo
+### Example: Request echo and request.json
 
 ```json
 {
   "echo": {
-    "method": "{{$request.method}}",
-    "path": "{{$request.path}}",
-    "auth": "{{$request.header.Authorization}}"
+    "method": "{{ request.method }}",
+    "path": "{{ request.path }}",
+    "userId": "{{ request.route.id }}",
+    "auth": "{{ request.headers["Authorization"] }}"
   },
-  "requestId": "{{$randomUUID}}",
-  "processedAt": "{{$isoTimestamp}}"
+  "requestId": "{{ helpers.guid() }}",
+  "bodyParsed": {{ request.json }}
 }
 ```
 
-> Multiple occurrences of the same variable in one response produce different values. Two `{{$randomUUID}}` fields will have different UUIDs.
+> Multiple occurrences of the same helper in one response produce different values (e.g. two `{{ helpers.guid() }}` yield two different UUIDs).
 
 ---
 

@@ -36,6 +36,7 @@ public class MocklabDbContext : DbContext
     public DbSet<MockResponseRule> MockResponseRules { get; set; }
     public DbSet<MockResponseSequenceItem> MockResponseSequenceItems { get; set; }
     public DbSet<KeyValueEntry> KeyValueEntries { get; set; }
+    public DbSet<DataBucket> DataBuckets { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +65,20 @@ public class MocklabDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(m => m.CollectionId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(c => c.DataBuckets)
+                .WithOne(d => d.Collection)
+                .HasForeignKey(d => d.CollectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure DataBucket entity
+        modelBuilder.Entity<DataBucket>(entity =>
+        {
+            entity.ToTable("DataBuckets", _schemaName);
+
+            entity.HasIndex(d => new { d.CollectionId, d.Name })
+                .HasDatabaseName("IX_DataBuckets_CollectionId_Name");
         });
 
         // Configure MockFolder entity (folders within a collection)

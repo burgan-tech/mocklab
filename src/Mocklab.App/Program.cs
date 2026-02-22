@@ -37,7 +37,7 @@ builder.Services.AddHttpClient();
 
 // Register business services
 builder.Services.AddScoped<IMockImportService, MockImportService>();
-builder.Services.AddSingleton<ITemplateProcessor, TemplateProcessor>();
+builder.Services.AddSingleton<ITemplateProcessor, ScribanTemplateProcessor>();
 builder.Services.AddSingleton<IRuleEvaluator, RuleEvaluator>();
 builder.Services.AddSingleton<ISequenceStateManager, SequenceStateManager>();
 

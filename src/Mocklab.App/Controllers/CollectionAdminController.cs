@@ -21,6 +21,8 @@ public class CollectionAdminController(
     private readonly ILogger<CollectionAdminController> _logger = logger;
     private readonly ISequenceStateManager _sequenceStateManager = sequenceStateManager;
 
+    private const string KeyValueOwnerTypeMockResponseRule = "MockResponseRule";
+
     /// <summary>
     /// List all collections with mock count. Optionally include folders for each collection (for tree UI).
     /// </summary>
@@ -239,7 +241,7 @@ public class CollectionAdminController(
     }
 
     /// <summary>
-    /// Export a collection as JSON (includes folders and mock folderIndex for import).
+    /// Export a collection as JSON (collection, folders, mocks with rules and sequence items; import-compatible).
     /// </summary>
     [HttpPost("{id}/export")]
     public async Task<IActionResult> ExportCollection(int id)
@@ -247,10 +249,24 @@ public class CollectionAdminController(
         var collection = await _dbContext.MockCollections
             .Include(c => c.Folders)
             .Include(c => c.MockResponses)
+            .ThenInclude(m => m.Rules.OrderBy(r => r.Priority))
+            .Include(c => c.MockResponses)
+            .ThenInclude(m => m.SequenceItems.OrderBy(s => s.Order))
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (collection == null)
             return NotFound(new { Error = "Collection not found" });
+
+        var ruleIds = collection.MockResponses.SelectMany(m => m.Rules).Select(r => r.Id).ToList();
+        var headersByRuleId = new Dictionary<int, List<ResponseHeaderItem>>();
+        if (ruleIds.Count > 0)
+        {
+            var headerEntries = await _dbContext.KeyValueEntries
+                .Where(k => k.OwnerType == KeyValueOwnerTypeMockResponseRule && ruleIds.Contains(k.OwnerId))
+                .ToListAsync();
+            foreach (var g in headerEntries.GroupBy(k => k.OwnerId))
+                headersByRuleId[g.Key] = g.Select(e => new ResponseHeaderItem { Key = e.Key, Value = e.Value }).ToList();
+        }
 
         // Order folders so parent always comes before children (topological order for import).
         var allFolders = collection.Folders.ToList();
@@ -283,6 +299,25 @@ public class CollectionAdminController(
             int? folderIndex = null;
             if (m.FolderId.HasValue && folderIdToIndex.TryGetValue(m.FolderId.Value, out var fi))
                 folderIndex = fi;
+            var rulesExport = m.Rules.Select(r => new
+            {
+                r.ConditionField,
+                r.ConditionOperator,
+                r.ConditionValue,
+                r.StatusCode,
+                r.ResponseBody,
+                r.ContentType,
+                r.Priority,
+                ResponseHeaders = headersByRuleId.TryGetValue(r.Id, out var headers) ? headers : new List<ResponseHeaderItem>()
+            }).ToList();
+            var sequenceExport = m.SequenceItems.OrderBy(s => s.Order).Select(s => new
+            {
+                s.Order,
+                s.StatusCode,
+                s.ResponseBody,
+                s.ContentType,
+                s.DelayMs
+            }).ToList();
             return new
             {
                 m.HttpMethod,
@@ -295,7 +330,10 @@ public class CollectionAdminController(
                 m.Description,
                 m.DelayMs,
                 m.IsActive,
-                FolderIndex = folderIndex
+                m.IsSequential,
+                FolderIndex = folderIndex,
+                Rules = rulesExport,
+                SequenceItems = sequenceExport
             };
         }).ToList();
 
@@ -315,7 +353,7 @@ public class CollectionAdminController(
     }
 
     /// <summary>
-    /// Import a collection from JSON (supports optional folders and mock folderIndex).
+    /// Import a collection from JSON (collection, folders, mocks with rules and sequence items; export-compatible).
     /// </summary>
     [HttpPost("import")]
     public async Task<IActionResult> ImportCollection([FromBody] JsonElement importData)
@@ -360,9 +398,18 @@ public class CollectionAdminController(
                 }
             }
 
-            var importedCount = 0;
+            var seenMethodRoute = new HashSet<(string Method, string Route)>();
+            var mocksToAdd = new List<MockResponse>();
+            var rulesPerMock = new List<List<(MockResponseRule Rule, List<ResponseHeaderItem> Headers)>>();
+            var sequencePerMock = new List<List<MockResponseSequenceItem>>();
+
             foreach (var mockData in mocksData.EnumerateArray())
             {
+                var httpMethod = (mockData.GetProperty("httpMethod").GetString() ?? "GET").Trim().ToUpperInvariant();
+                var route = (mockData.GetProperty("route").GetString() ?? "/").Trim();
+                if (!seenMethodRoute.Add((httpMethod, route)))
+                    continue;
+
                 int? folderId = null;
                 if (mockData.TryGetProperty("folderIndex", out var folderIndexEl) && folderIndexEl.ValueKind == JsonValueKind.Number)
                 {
@@ -373,8 +420,8 @@ public class CollectionAdminController(
 
                 var mock = new MockResponse
                 {
-                    HttpMethod = mockData.GetProperty("httpMethod").GetString() ?? "GET",
-                    Route = mockData.GetProperty("route").GetString() ?? "/",
+                    HttpMethod = httpMethod,
+                    Route = route,
                     QueryString = mockData.TryGetProperty("queryString", out var qs) ? qs.GetString() : null,
                     RequestBody = mockData.TryGetProperty("requestBody", out var rb) ? rb.GetString() : null,
                     StatusCode = mockData.TryGetProperty("statusCode", out var sc) ? sc.GetInt32() : 200,
@@ -383,25 +430,118 @@ public class CollectionAdminController(
                     Description = mockData.TryGetProperty("description", out var d) ? d.GetString() : null,
                     DelayMs = mockData.TryGetProperty("delayMs", out var delay) && delay.ValueKind == JsonValueKind.Number ? delay.GetInt32() : null,
                     IsActive = mockData.TryGetProperty("isActive", out var ia) ? ia.GetBoolean() : true,
+                    IsSequential = mockData.TryGetProperty("isSequential", out var seq) && seq.ValueKind == JsonValueKind.True,
                     CollectionId = collection.Id,
                     FolderId = folderId,
                     CreatedAt = DateTime.UtcNow
                 };
+                mocksToAdd.Add(mock);
 
-                _dbContext.MockResponses.Add(mock);
-                importedCount++;
+                var ruleList = new List<(MockResponseRule Rule, List<ResponseHeaderItem> Headers)>();
+                if (mockData.TryGetProperty("rules", out var rulesEl) && rulesEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var ruleEl in rulesEl.EnumerateArray())
+                    {
+                        var headers = new List<ResponseHeaderItem>();
+                        if (ruleEl.TryGetProperty("responseHeaders", out var headersEl) && headersEl.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var he in headersEl.EnumerateArray())
+                            {
+                                var key = he.TryGetProperty("key", out var k) ? k.GetString()?.Trim() : null;
+                                if (string.IsNullOrEmpty(key)) continue;
+                                headers.Add(new ResponseHeaderItem { Key = key!, Value = he.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "" });
+                            }
+                        }
+                        ruleList.Add((new MockResponseRule
+                        {
+                            ConditionField = ruleEl.TryGetProperty("conditionField", out var cf) ? cf.GetString() ?? "" : "",
+                            ConditionOperator = ruleEl.TryGetProperty("conditionOperator", out var co) ? co.GetString() ?? "equals" : "equals",
+                            ConditionValue = ruleEl.TryGetProperty("conditionValue", out var cv) ? cv.GetString() : null,
+                            StatusCode = ruleEl.TryGetProperty("statusCode", out var rsc) ? rsc.GetInt32() : 200,
+                            ResponseBody = ruleEl.TryGetProperty("responseBody", out var ruleRb) ? ruleRb.GetString() ?? "{}" : "{}",
+                            ContentType = ruleEl.TryGetProperty("contentType", out var ruleCt) ? ruleCt.GetString() ?? "application/json" : "application/json",
+                            Priority = ruleEl.TryGetProperty("priority", out var pr) && pr.ValueKind == JsonValueKind.Number ? pr.GetInt32() : 0
+                        }, headers));
+                    }
+                }
+                rulesPerMock.Add(ruleList);
+
+                var seqList = new List<MockResponseSequenceItem>();
+                if (mockData.TryGetProperty("sequenceItems", out var seqEl) && seqEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var siEl in seqEl.EnumerateArray())
+                    {
+                        seqList.Add(new MockResponseSequenceItem
+                        {
+                            Order = siEl.TryGetProperty("order", out var o) && o.ValueKind == JsonValueKind.Number ? o.GetInt32() : 0,
+                            StatusCode = siEl.TryGetProperty("statusCode", out var siSc) ? siSc.GetInt32() : 200,
+                            ResponseBody = siEl.TryGetProperty("responseBody", out var sb) ? sb.GetString() ?? "{}" : "{}",
+                            ContentType = siEl.TryGetProperty("contentType", out var siCt) ? siCt.GetString() ?? "application/json" : "application/json",
+                            DelayMs = siEl.TryGetProperty("delayMs", out var dm) && dm.ValueKind == JsonValueKind.Number ? dm.GetInt32() : null
+                        });
+                    }
+                }
+                sequencePerMock.Add(seqList);
             }
 
+            _dbContext.MockResponses.AddRange(mocksToAdd);
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation("Collection imported: Id={Id}, Name={Name}, Mocks={Count}",
-                collection.Id, collection.Name, importedCount);
+            var allRules = new List<MockResponseRule>();
+            var allRuleHeaders = new List<List<ResponseHeaderItem>>();
+            for (var i = 0; i < mocksToAdd.Count; i++)
+            {
+                foreach (var (rule, headers) in rulesPerMock[i])
+                {
+                    rule.MockResponseId = mocksToAdd[i].Id;
+                    allRules.Add(rule);
+                    allRuleHeaders.Add(headers);
+                }
+            }
+            if (allRules.Count > 0)
+            {
+                _dbContext.MockResponseRules.AddRange(allRules);
+                await _dbContext.SaveChangesAsync();
+                for (var j = 0; j < allRules.Count; j++)
+                {
+                    foreach (var h in allRuleHeaders[j])
+                    {
+                        _dbContext.KeyValueEntries.Add(new KeyValueEntry
+                        {
+                            OwnerType = KeyValueOwnerTypeMockResponseRule,
+                            OwnerId = allRules[j].Id,
+                            Key = h.Key,
+                            Value = h.Value
+                        });
+                    }
+                }
+            }
 
+            for (var i = 0; i < mocksToAdd.Count; i++)
+            {
+                foreach (var si in sequencePerMock[i])
+                {
+                    si.MockResponseId = mocksToAdd[i].Id;
+                    _dbContext.MockResponseSequenceItems.Add(si);
+                }
+            }
+            await _dbContext.SaveChangesAsync();
+
+            var importedCount = mocksToAdd.Count;
+            var skippedDuplicates = mocksData.GetArrayLength() - importedCount;
+
+            _logger.LogInformation("Collection imported: Id={Id}, Name={Name}, Mocks={Count}, Skipped={Skipped}",
+                collection.Id, collection.Name, importedCount, skippedDuplicates);
+
+            var message = skippedDuplicates > 0
+                ? $"Successfully imported collection '{collection.Name}' with {importedCount} mock(s). {skippedDuplicates} duplicate(s) (same method and route) skipped."
+                : $"Successfully imported collection '{collection.Name}' with {importedCount} mock(s)";
             return Ok(new
             {
-                Message = $"Successfully imported collection '{collection.Name}' with {importedCount} mock(s)",
+                Message = message,
                 CollectionId = collection.Id,
-                ImportedCount = importedCount
+                ImportedCount = importedCount,
+                SkippedDuplicates = skippedDuplicates
             });
         }
         catch (Exception ex)

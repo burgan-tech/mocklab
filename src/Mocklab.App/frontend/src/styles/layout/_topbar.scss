@@ -1,11 +1,11 @@
 .layout-topbar {
   position: fixed;
-  height: 4rem;
+  height: 3rem;
   z-index: 997;
   left: 0;
   top: 0;
   width: 100%;
-  padding: 0 1.5rem;
+  padding: 0 1rem;
   background-color: var(--surface-card);
   transition: left $transitionDuration;
   display: flex;
@@ -23,14 +23,14 @@
     align-items: center;
     color: var(--surface-900);
     cursor: pointer;
-    gap: 0.75rem;
-    padding-right: 2rem;
+    gap: 0.5rem;
+    padding-right: 1.25rem;
     border-right: 1px solid var(--surface-border);
-    margin-right: 1.5rem;
+    margin-right: 1rem;
 
     > i {
       color: var(--primary-color);
-      font-size: 1.5rem;
+      font-size: 1.125rem;
     }
 
     &:focus {
@@ -41,48 +41,47 @@
   .layout-topbar-logo-text {
     display: flex;
     flex-direction: column;
-    line-height: 1;
+    line-height: 1.15;
   }
 
   .layout-topbar-app-name {
-    font-size: 1.125rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     color: var(--surface-900);
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
   }
 
   .layout-topbar-app-subtitle {
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
     font-weight: 500;
     color: var(--text-color-secondary);
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-top: 0.125rem;
+    margin-top: 0.0625rem;
   }
 
-  // Desktop navigation
   .layout-topbar-nav {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.125rem;
     flex: 1;
 
     .layout-topbar-nav-item {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 0.875rem;
-      border-radius: 8px;
+      gap: 0.375rem;
+      padding: 0.375rem 0.625rem;
+      border-radius: $borderRadius;
       color: var(--text-color-secondary);
       cursor: pointer;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       font-weight: 500;
       white-space: nowrap;
       transition: background-color $transitionDuration, color $transitionDuration;
       text-decoration: none;
 
       i {
-        font-size: 1rem;
+        font-size: 0.875rem;
       }
 
       &:hover {
@@ -101,10 +100,10 @@
       }
 
       .p-badge {
-        font-size: 0.625rem;
-        min-width: 1.25rem;
-        height: 1.25rem;
-        line-height: 1.25rem;
+        font-size: 0.5625rem;
+        min-width: 1.125rem;
+        height: 1.125rem;
+        line-height: 1.125rem;
       }
     }
   }
@@ -113,7 +112,7 @@
     display: flex;
     align-items: center;
     margin-left: auto;
-    gap: 0.25rem;
+    gap: 0.125rem;
   }
 
   .layout-topbar-button {
@@ -122,9 +121,9 @@
     align-items: center;
     position: relative;
     color: var(--text-color-secondary);
-    border-radius: 8px;
-    width: 2.5rem;
-    height: 2.5rem;
+    border-radius: $borderRadius;
+    width: 2rem;
+    height: 2rem;
     cursor: pointer;
     transition: background-color $transitionDuration, color $transitionDuration;
     border: none;
@@ -141,7 +140,7 @@
     }
 
     i {
-      font-size: 1.25rem;
+      font-size: 1rem;
     }
   }
 
@@ -150,9 +149,9 @@
     justify-content: center;
     align-items: center;
     color: var(--text-color-secondary);
-    border-radius: 8px;
-    width: 2.5rem;
-    height: 2.5rem;
+    border-radius: $borderRadius;
+    width: 2rem;
+    height: 2rem;
     cursor: pointer;
     transition: background-color $transitionDuration, color $transitionDuration;
     border: none;
@@ -164,7 +163,7 @@
     }
 
     i {
-      font-size: 1.25rem;
+      font-size: 1rem;
     }
   }
 }
@@ -180,33 +179,29 @@
 
 @media (max-width: 991px) {
   .layout-topbar {
-    padding: 0 1rem;
+    padding: 0 0.75rem;
+  }
 
-    .layout-topbar-logo {
-      border-right: none;
-      padding-right: 0;
-      margin-right: 0;
-    }
+  .layout-topbar .layout-topbar-logo {
+    border-right: none;
+    padding-right: 0;
+    margin-right: 0;
+  }
 
-    .layout-topbar-logo-text {
-      .layout-topbar-app-subtitle {
-        display: none;
-      }
-    }
+  .layout-topbar .layout-topbar-logo-text .layout-topbar-app-subtitle {
+    display: none;
+  }
 
-    .layout-topbar-nav {
-      display: none;
-    }
+  .layout-topbar .layout-topbar-nav {
+    display: none;
+  }
 
-    .layout-topbar-end {
-      .layout-topbar-button {
-        display: none;
-      }
+  .layout-topbar .layout-topbar-end .layout-topbar-button {
+    display: none;
+  }
 
-      .layout-topbar-mobile-button {
-        display: inline-flex;
-      }
-    }
+  .layout-topbar .layout-topbar-end .layout-topbar-mobile-button {
+    display: inline-flex;
   }
 
   .layout-mobile-mask {
@@ -224,64 +219,64 @@
   .layout-mobile-menu {
     display: block;
     position: fixed;
-    top: 4rem;
+    top: 3rem;
     right: 0.5rem;
     z-index: 999;
     background-color: var(--surface-overlay);
     border-radius: $borderRadius;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 1px 8px rgba(0, 0, 0, 0.06);
-    padding: 0.5rem;
-    min-width: 220px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+    padding: 0.375rem;
+    min-width: 180px;
     animation: scalein 0.12s ease-out;
 
     .layout-mobile-menu-section {
-      padding: 0.25rem 0;
+      padding: 0.125rem 0;
     }
 
     .layout-mobile-menu-label {
       display: block;
-      font-size: 0.6875rem;
+      font-size: 0.625rem;
       text-transform: uppercase;
       font-weight: 700;
       color: var(--text-color-secondary);
-      padding: 0.5rem 0.75rem 0.375rem;
-      letter-spacing: 0.05em;
+      padding: 0.375rem 0.5rem 0.25rem;
+      letter-spacing: 0.04em;
     }
 
     .layout-mobile-menu-divider {
       height: 1px;
       background-color: var(--surface-border);
-      margin: 0.25rem 0.5rem;
+      margin: 0.125rem 0.375rem;
     }
 
     .layout-mobile-menu-item {
       display: flex;
       align-items: center;
-      gap: 0.625rem;
-      padding: 0.625rem 0.75rem;
-      border-radius: 8px;
+      gap: 0.5rem;
+      padding: 0.5rem 0.625rem;
+      border-radius: $borderRadius;
       color: var(--text-color);
       cursor: pointer;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       transition: background-color $transitionDuration;
       text-decoration: none;
 
       i {
-        font-size: 1rem;
+        font-size: 0.875rem;
         color: var(--text-color-secondary);
       }
 
       .layout-mobile-menu-external {
         margin-left: auto;
-        font-size: 0.75rem;
+        font-size: 0.6875rem;
       }
 
       .p-badge {
         margin-left: auto;
-        font-size: 0.625rem;
-        min-width: 1.25rem;
-        height: 1.25rem;
-        line-height: 1.25rem;
+        font-size: 0.5625rem;
+        min-width: 1.125rem;
+        height: 1.125rem;
+        line-height: 1.125rem;
       }
 
       &:hover {

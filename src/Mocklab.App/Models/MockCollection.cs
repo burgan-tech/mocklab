@@ -41,4 +41,9 @@ public class MockCollection
     /// Navigation property for folders in this collection
     /// </summary>
     public ICollection<MockFolder> Folders { get; set; } = new List<MockFolder>();
+
+    /// <summary>
+    /// Navigation property for data buckets in this collection
+    /// </summary>
+    public ICollection<DataBucket> DataBuckets { get; set; } = new List<DataBucket>();
 }
