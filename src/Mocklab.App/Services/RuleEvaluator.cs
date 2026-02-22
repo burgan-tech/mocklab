@@ -124,6 +124,14 @@ public class RuleEvaluator : IRuleEvaluator
     /// <summary>
     /// Extracts route parameters by matching requestPath against the route template (e.g. /api/users/{id}).
     /// Returns a dictionary of parameter name to value, or null if template/path is missing or no match.
+    /// Public for use by template processor and other callers.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string>? GetRouteParameters(string? routeTemplate, string? requestPath)
+        => ExtractRouteParameters(routeTemplate, requestPath);
+
+    /// <summary>
+    /// Extracts route parameters by matching requestPath against the route template (e.g. /api/users/{id}).
+    /// Returns a dictionary of parameter name to value, or null if template/path is missing or no match.
     /// </summary>
     private static IReadOnlyDictionary<string, string>? ExtractRouteParameters(string? routeTemplate, string? requestPath)
     {

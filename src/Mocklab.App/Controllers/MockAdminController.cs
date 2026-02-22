@@ -52,6 +52,35 @@ public class MockAdminController(
 
     private const string KeyValueOwnerTypeMockResponseRule = "MockResponseRule";
 
+    private static string NormalizeMethod(string? method) => (method ?? "").Trim().ToUpperInvariant();
+    private static string NormalizeRoute(string? route) => (route ?? "").Trim();
+
+    private async Task<bool> ExistsMockWithSameMethodAndRouteAsync(int? collectionId, string method, string route, int? excludeId = null)
+    {
+        var m = NormalizeMethod(method);
+        var r = NormalizeRoute(route);
+        var query = _dbContext.MockResponses
+            .Where(x => x.CollectionId == collectionId);
+        if (excludeId.HasValue)
+            query = query.Where(x => x.Id != excludeId.Value);
+        var candidates = await query.Select(x => new { x.HttpMethod, x.Route }).ToListAsync();
+        return candidates.Any(x => NormalizeMethod(x.HttpMethod) == m && NormalizeRoute(x.Route) == r);
+    }
+
+    private static bool HasDuplicateRules(IEnumerable<MockResponseRule>? rules)
+    {
+        if (rules == null) return false;
+        var list = rules.ToList();
+        if (list.Count == 0) return false;
+        var set = new HashSet<(int StatusCode, string Field, string Op, string? Value)>();
+        foreach (var r in list)
+        {
+            var key = (r.StatusCode, r.ConditionField ?? "", r.ConditionOperator ?? "", r.ConditionValue ?? "");
+            if (!set.Add(key)) return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Get a specific mock response with rules and sequence items (rules include responseHeaders from KeyValueEntry).
     /// </summary>
@@ -104,6 +133,12 @@ public class MockAdminController(
             return BadRequest(new { Error = "Folder can only be set when a collection is selected" });
         }
 
+        if (await ExistsMockWithSameMethodAndRouteAsync(mockResponse.CollectionId, mockResponse.HttpMethod, mockResponse.Route))
+            return BadRequest(new { Error = "A mock with the same HTTP method and route already exists in this collection." });
+
+        if (HasDuplicateRules(mockResponse.Rules))
+            return BadRequest(new { Error = "Duplicate rule: the same status code and condition (field, operator, value) can only be used once per mock." });
+
         mockResponse.CreatedAt = DateTime.UtcNow;
         mockResponse.UpdatedAt = null;
 
@@ -154,6 +189,12 @@ public class MockAdminController(
         {
             return NotFound(new { Error = "Mock response not found" });
         }
+
+        if (await ExistsMockWithSameMethodAndRouteAsync(mockResponse.CollectionId, mockResponse.HttpMethod, mockResponse.Route, excludeId: id))
+            return BadRequest(new { Error = "A mock with the same HTTP method and route already exists in this collection." });
+
+        if (HasDuplicateRules(mockResponse.Rules))
+            return BadRequest(new { Error = "Duplicate rule: the same status code and condition (field, operator, value) can only be used once per mock." });
 
         // Update basic fields
         existingMock.HttpMethod = mockResponse.HttpMethod;
@@ -379,6 +420,23 @@ public class MockAdminController(
                 mock.FolderId = null;
             }
             mock.UpdatedAt = DateTime.UtcNow;
+        }
+
+        var targetCollectionId = request.CollectionId;
+        var mocksInTargetAfterUpdate = await _dbContext.MockResponses
+            .Where(m => m.CollectionId == targetCollectionId && !request.MockIds.Contains(m.Id))
+            .Select(m => new { m.HttpMethod, m.Route })
+            .ToListAsync();
+        var keysInTarget = mocksInTargetAfterUpdate
+            .Select(m => (NormalizeMethod(m.HttpMethod), NormalizeRoute(m.Route)))
+            .ToHashSet();
+        foreach (var mock in mocks)
+        {
+            var key = (NormalizeMethod(mock.HttpMethod), NormalizeRoute(mock.Route));
+            if (!keysInTarget.Add(key))
+            {
+                return BadRequest(new { Error = "Bulk update would create a duplicate: same HTTP method and route already exist in the target collection." });
+            }
         }
 
         await _dbContext.SaveChangesAsync();

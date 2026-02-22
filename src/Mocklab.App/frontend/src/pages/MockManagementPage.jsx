@@ -23,6 +23,8 @@ import { ContextMenu } from 'primereact/contextmenu';
 import { mockService } from '../services/mockService';
 import { collectionService } from '../services/collectionService';
 import { folderService } from '../services/folderService';
+import { JsonBodyEditor } from '../components/JsonBodyEditor';
+import { TemplateVariablesModal } from '../components/TemplateVariablesModal';
 
 export default function MockManagementPage() {
   const [mocks, setMocks] = useState([]);
@@ -39,7 +41,7 @@ export default function MockManagementPage() {
   const [openApiDialog, setOpenApiDialog] = useState(false);
   const [openApiJson, setOpenApiJson] = useState('');
   const [openApiLoading, setOpenApiLoading] = useState(false);
-  const [showTemplateHelp, setShowTemplateHelp] = useState(false);
+  const [templateVariablesModalVisible, setTemplateVariablesModalVisible] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [activeRuleSubTab, setActiveRuleSubTab] = useState({});
   const [treeSelectionKey, setTreeSelectionKey] = useState('all');
@@ -591,7 +593,7 @@ export default function MockManagementPage() {
     setMock(emptyMock);
     setIsEditMode(false);
     setActiveTabIndex(0);
-    setShowTemplateHelp(false);
+    setTemplateVariablesModalVisible(false);
     setMockDialog(true);
   };
 
@@ -678,7 +680,7 @@ export default function MockManagementPage() {
       setMock({ ...fullMock, rules: rulesWithScope });
       setIsEditMode(true);
       setActiveTabIndex(0);
-      setShowTemplateHelp(false);
+      setTemplateVariablesModalVisible(false);
       setMockDialog(true);
     } catch (error) {
       toast.current.show({
@@ -1094,15 +1096,16 @@ export default function MockManagementPage() {
                 </div>
                 <div className="col-12">
                   <div className="field mb-0">
-                    <label className="text-sm font-medium mb-1 block">Response Body</label>
-                    <InputTextarea
+                    <div className="flex align-items-center justify-content-between mb-1">
+                      <label className="text-sm font-medium mb-1 block">Response Body</label>
+                      <Button type="button" label="Variables" icon="pi pi-info-circle" link size="small" className="p-0" onClick={() => setTemplateVariablesModalVisible(true)} />
+                    </div>
+                    <JsonBodyEditor
                       value={rule.responseBody || ''}
-                      onChange={(e) => updateRule(index, 'responseBody', e.target.value)}
-                      rows={3}
-                      autoResize
-                      style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                      className="w-full"
-                      placeholder='{"error": "Unauthorized"}'
+                      onChange={(v) => updateRule(index, 'responseBody', v ?? '')}
+                      height={160}
+                      toastRef={toast}
+                      autoBeautify={true}
                     />
                   </div>
                 </div>
@@ -1320,15 +1323,16 @@ export default function MockManagementPage() {
             </div>
             <div className="col-12">
               <div className="field mb-0">
-                <label className="text-sm font-medium mb-1 block">Response Body</label>
-                <InputTextarea
+                <div className="flex align-items-center justify-content-between mb-1">
+                  <label className="text-sm font-medium mb-1 block">Response Body</label>
+                  <Button type="button" label="Variables" icon="pi pi-info-circle" link size="small" className="p-0" onClick={() => setTemplateVariablesModalVisible(true)} />
+                </div>
+                <JsonBodyEditor
                   value={item.responseBody || ''}
-                  onChange={(e) => updateSequenceItem(index, 'responseBody', e.target.value)}
-                  rows={3}
-                  autoResize
-                  style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                  className="w-full"
-                  placeholder='{"status": "pending"}'
+                  onChange={(v) => updateSequenceItem(index, 'responseBody', v ?? '')}
+                  height={160}
+                  toastRef={toast}
+                  autoBeautify={true}
                 />
               </div>
             </div>
@@ -2053,56 +2057,34 @@ export default function MockManagementPage() {
               </div>
               <div className="col-12">
                 <div className="field">
-                  <label htmlFor="requestBody">Request Body (optional)</label>
-                  <InputTextarea
-                    id="requestBody"
+                  <div className="flex align-items-center justify-content-between mb-1">
+                    <label htmlFor="requestBody">Request Body (optional)</label>
+                    <Button type="button" label="Variables" icon="pi pi-info-circle" link size="small" className="p-0" onClick={() => setTemplateVariablesModalVisible(true)} />
+                  </div>
+                  <JsonBodyEditor
+                    key={`mock-${mock?.id ?? 'new'}-request`}
                     value={mock?.requestBody || ''}
-                    onChange={(e) => onInputChange(e, 'requestBody')}
-                    rows={3}
-                    autoResize
-                    placeholder="Expected request body (for POST/PUT requests)"
+                    onChange={(v) => onInputChange({ target: { value: v } }, 'requestBody')}
+                    height={160}
+                    toastRef={toast}
+                    autoBeautify={true}
                   />
                 </div>
               </div>
               <div className="col-12">
                 <div className="field">
-                  <label htmlFor="responseBody">Response Body <span className="text-red-500">*</span></label>
-                  <InputTextarea
-                    id="responseBody"
+                  <div className="flex align-items-center justify-content-between mb-1">
+                    <label htmlFor="responseBody">Response Body <span className="text-red-500">*</span></label>
+                    <Button type="button" label="Variables" icon="pi pi-info-circle" link size="small" className="p-0" onClick={() => setTemplateVariablesModalVisible(true)} />
+                  </div>
+                  <JsonBodyEditor
+                    key={`mock-${mock?.id ?? 'new'}-response`}
                     value={mock?.responseBody || ''}
-                    onChange={(e) => onInputChange(e, 'responseBody')}
-                    rows={6}
-                    autoResize
-                    placeholder='e.g., {"id": "{{$randomUUID}}", "name": "{{$randomName}}"}'
-                    style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+                    onChange={(v) => onInputChange({ target: { value: v } }, 'responseBody')}
+                    height={220}
+                    toastRef={toast}
+                    autoBeautify={true}
                   />
-                  <small>
-                    Supports template variables.{' '}
-                    <a onClick={() => setShowTemplateHelp(!showTemplateHelp)} style={{ cursor: 'pointer', color: 'var(--primary-color)' }}>
-                      {showTemplateHelp ? 'Hide' : 'Show'} available variables
-                    </a>
-                  </small>
-                  {showTemplateHelp && (
-                    <div className="mt-2 p-3 border-round surface-ground text-sm" style={{ lineHeight: '1.8' }}>
-                      <div className="font-semibold mb-2">Random Data:</div>
-                      <code>{'{{$randomUUID}}'}</code> - UUID &nbsp;|&nbsp;
-                      <code>{'{{$randomName}}'}</code> - Name &nbsp;|&nbsp;
-                      <code>{'{{$randomEmail}}'}</code> - Email &nbsp;|&nbsp;
-                      <code>{'{{$randomInt}}'}</code> - Integer &nbsp;|&nbsp;
-                      <code>{'{{$randomInt(1,100)}}'}</code> - Range &nbsp;|&nbsp;
-                      <code>{'{{$randomFloat}}'}</code> - Float &nbsp;|&nbsp;
-                      <code>{'{{$randomBool}}'}</code> - Boolean
-                      <div className="font-semibold mb-2 mt-3">Timestamps:</div>
-                      <code>{'{{$timestamp}}'}</code> - Unix timestamp &nbsp;|&nbsp;
-                      <code>{'{{$isoTimestamp}}'}</code> - ISO 8601
-                      <div className="font-semibold mb-2 mt-3">Request Data:</div>
-                      <code>{'{{$request.path}}'}</code> - Path &nbsp;|&nbsp;
-                      <code>{'{{$request.method}}'}</code> - Method &nbsp;|&nbsp;
-                      <code>{'{{$request.body}}'}</code> - Body &nbsp;|&nbsp;
-                      <code>{'{{$request.query.paramName}}'}</code> - Query param &nbsp;|&nbsp;
-                      <code>{'{{$request.header.headerName}}'}</code> - Header
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -2135,6 +2117,8 @@ export default function MockManagementPage() {
           </TabPanel>
         </TabView>
       </Dialog>
+
+      <TemplateVariablesModal visible={templateVariablesModalVisible} onHide={() => setTemplateVariablesModalVisible(false)} />
 
       {/* cURL Import Dialog */}
       <Dialog

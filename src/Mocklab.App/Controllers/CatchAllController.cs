@@ -106,6 +106,28 @@ public class CatchAllController(
                 mockResponse.Description
             );
 
+            // Build template context once (route params, request body, data buckets) for body and header value processing
+            var routeParams = RuleEvaluator.GetRouteParameters(mockResponse.Route, requestPath);
+            var templateContext = new TemplateRequestContext
+            {
+                RouteParams = routeParams,
+                RequestBody = requestBody
+            };
+            if (mockResponse.CollectionId.HasValue)
+            {
+                var bucketEntities = await _dbContext.DataBuckets
+                    .Where(b => b.CollectionId == mockResponse.CollectionId.Value)
+                    .ToListAsync();
+                var buckets = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                foreach (var b in bucketEntities)
+                {
+                    var obj = JsonToScribanHelper.FromJson(b.Data);
+                    if (obj != null)
+                        buckets[b.Name] = obj;
+                }
+                templateContext.Buckets = buckets;
+            }
+
             // Determine response values — defaults from mock
             var responseBody = mockResponse.ResponseBody;
             var contentType = mockResponse.ContentType;
@@ -148,7 +170,10 @@ public class CatchAllController(
                         foreach (var h in matchedRule.ResponseHeaders)
                         {
                             if (!string.IsNullOrWhiteSpace(h.Key))
-                                Response.Headers.Append(h.Key, h.Value ?? string.Empty);
+                            {
+                                var processedValue = _templateProcessor.ProcessTemplate(h.Value ?? string.Empty, Request, templateContext);
+                                Response.Headers.Append(h.Key, processedValue);
+                            }
                         }
                     }
                 }
@@ -162,7 +187,7 @@ public class CatchAllController(
             }
 
             // Step 4: Process template variables in response body
-            var processedBody = _templateProcessor.ProcessTemplate(responseBody, Request);
+            var processedBody = _templateProcessor.ProcessTemplate(responseBody, Request, templateContext);
 
             // Step 5: Return response using ContentResult to avoid deserialize/re-serialize issues
             // Previously JsonSerializer.Deserialize<object> caused 204 No Content bug
@@ -245,23 +270,22 @@ public class CatchAllController(
         string? requestBody)
     {
         var query = BuildMockQuery(method, queryString, requestBody);
+        var candidates = await query.ToListAsync();
 
-        //TODO: Consider use firstordefault instead of tolistasync, or return all matches instead of just the first one
-        // First, try exact route match
-        var exactMatch = await query.Where(m => m.Route == path).ToListAsync();
+        // 1) Exact route match
+        var exact = candidates.FirstOrDefault(m => m.Route == path);
+        if (exact != null)
+            return exact;
 
-        // If no exact match, fallback to contains
-        var mockResponses = exactMatch.Count > 0
-            ? exactMatch
-            : await query.Where(m => path.Contains(m.Route)).ToListAsync();
+        // 2) Parametrik match: route template like /api/users/{id} matches /api/users/123
+        var parametrik = candidates.FirstOrDefault(m =>
+            m.Route.Contains('{', StringComparison.Ordinal) &&
+            RuleEvaluator.GetRouteParameters(m.Route, path) != null);
+        if (parametrik != null)
+            return parametrik;
 
-        foreach (var mock in mockResponses)
-        {
-            // Check query string (if exists)
-            return mock;
-        }
-
-        return null;
+        // 3) Fallback: path contains route (require non-empty route to avoid matching empty)
+        return candidates.FirstOrDefault(m => !string.IsNullOrEmpty(m.Route) && path.Contains(m.Route, StringComparison.Ordinal));
     }
     private IQueryable<Models.MockResponse> BuildMockQuery(string method, string? queryString, string? requestBody)
     {
@@ -276,13 +300,6 @@ public class CatchAllController(
             // Match mocks that either have no queryString filter (null/empty = match any query)
             // or have a specific queryString that matches the incoming request
             query = query.Where(m => string.IsNullOrEmpty(m.QueryString) || m.QueryString == queryString);
-        }
-
-        if (!string.IsNullOrEmpty(requestBody))
-        {
-            // Match mocks that either have no requestBody filter (null/empty = match any body)
-            // or have a specific requestBody that matches the incoming request
-            query = query.Where(m => string.IsNullOrEmpty(m.RequestBody) || m.RequestBody == requestBody);
         }
 
         return query;

@@ -1,3 +1,11 @@
-/* General */
-$borderRadius:12px; /* border radius of layout element e.g. card, sidebar */ 
-$transitionDuration:.2s; /* transition duration of layout elements e.g. sidebar, overlay menus */
+/* General - small / minimal design */
+$borderRadius: 6px;
+$transitionDuration: 0.2s;
+
+/* Compact spacing scale */
+$space-xs: 0.25rem;
+$space-sm: 0.5rem;
+$space-md: 0.75rem;
+$space-lg: 1rem;
+$space-xl: 1.25rem;
+$space-2xl: 1.5rem;

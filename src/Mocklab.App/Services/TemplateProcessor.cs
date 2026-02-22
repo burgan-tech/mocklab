@@ -22,7 +22,7 @@ public partial class TemplateProcessor : ITemplateProcessor
         "example.com", "test.org", "mock.io", "demo.dev", "sample.net"
     ];
 
-    public string ProcessTemplate(string template, HttpRequest request)
+    public string ProcessTemplate(string template, HttpRequest request, TemplateRequestContext? context = null)
     {
         if (string.IsNullOrEmpty(template) || !template.Contains("{{"))
             return template;
