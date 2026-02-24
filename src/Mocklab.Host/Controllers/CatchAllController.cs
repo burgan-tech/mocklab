@@ -269,25 +269,42 @@ public class CatchAllController(
         string queryString,
         string? requestBody)
     {
-        var query = BuildMockQuery(method, queryString, requestBody);
+        var query = BuildMockQuery(method, queryString);
         var candidates = await query.ToListAsync();
 
-        // 1) Exact route match
-        var exact = candidates.FirstOrDefault(m => m.Route == path);
-        if (exact != null)
-            return exact;
+        // Helper: prefer candidates with matching body over those without
+        Models.MockResponse? SelectBestMatch(IEnumerable<Models.MockResponse> matches)
+        {
+            var list = matches.ToList();
+            if (list.Count <= 1) return list.FirstOrDefault();
 
-        // 2) Parametrik match: route template like /api/users/{id} matches /api/users/123
-        var parametrik = candidates.FirstOrDefault(m =>
-            m.Route.Contains('{', StringComparison.Ordinal) &&
-            RuleEvaluator.GetRouteParameters(m.Route, path) != null);
-        if (parametrik != null)
-            return parametrik;
+            var withBody = list.FirstOrDefault(m =>
+                !string.IsNullOrEmpty(m.RequestBody) && !string.IsNullOrEmpty(requestBody) &&
+                requestBody.Contains(m.RequestBody, StringComparison.OrdinalIgnoreCase));
+            return withBody ?? list.FirstOrDefault(m => string.IsNullOrEmpty(m.RequestBody));
+        }
 
-        // 3) Fallback: path contains route (require non-empty route to avoid matching empty)
-        return candidates.FirstOrDefault(m => !string.IsNullOrEmpty(m.Route) && path.Contains(m.Route, StringComparison.Ordinal));
+        // 1) Exact route match (prefer body-matching mock)
+        var exactMatches = candidates.Where(m => m.Route == path).ToList();
+        if (exactMatches.Count > 0)
+            return SelectBestMatch(exactMatches);
+
+        // 2) Parametric match: /api/users/{id} matches /api/users/123
+        var parametricMatches = candidates
+            .Where(m => m.Route.Contains('{', StringComparison.Ordinal) &&
+                        RuleEvaluator.GetRouteParameters(m.Route, path) != null)
+            .ToList();
+        if (parametricMatches.Count > 0)
+            return SelectBestMatch(parametricMatches);
+
+        // 3) Fallback: path contains route
+        var fallbackMatches = candidates
+            .Where(m => !string.IsNullOrEmpty(m.Route) && path.Contains(m.Route, StringComparison.Ordinal))
+            .ToList();
+        return SelectBestMatch(fallbackMatches);
     }
-    private IQueryable<Models.MockResponse> BuildMockQuery(string method, string? queryString, string? requestBody)
+
+    private IQueryable<Models.MockResponse> BuildMockQuery(string method, string? queryString)
     {
         var query = _dbContext.MockResponses
             .AsQueryable()
@@ -297,8 +314,6 @@ public class CatchAllController(
 
         if (!string.IsNullOrEmpty(queryString))
         {
-            // Match mocks that either have no queryString filter (null/empty = match any query)
-            // or have a specific queryString that matches the incoming request
             query = query.Where(m => string.IsNullOrEmpty(m.QueryString) || m.QueryString == queryString);
         }
 

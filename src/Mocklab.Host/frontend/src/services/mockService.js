@@ -9,10 +9,7 @@ class MockService {
     const qs = params.toString();
     const path = qs ? `${apiConfig.adminPath}?${qs}` : apiConfig.adminPath;
 
-    const response = await fetch(apiUrl(path), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(apiUrl(path));
 
     if (!response.ok) {
       const msg = await parseErrorResponse(response);
@@ -23,10 +20,7 @@ class MockService {
   }
 
   async getMock(id) {
-    const response = await fetch(apiUrl(`${apiConfig.adminPath}/${id}`), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(apiUrl(`${apiConfig.adminPath}/${id}`));
 
     if (!response.ok) {
       const msg = await parseErrorResponse(response);
@@ -89,10 +83,28 @@ class MockService {
     return { updatedCount: mockIds.length };
   }
 
+  async duplicateMock(id, targetCollectionId = null, targetFolderId = null) {
+    const body = {};
+    if (targetCollectionId !== null && targetCollectionId !== undefined) body.collectionId = targetCollectionId;
+    if (targetFolderId !== null && targetFolderId !== undefined) body.folderId = targetFolderId;
+
+    const response = await fetch(apiUrl(`${apiConfig.adminPath}/${id}/duplicate`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const msg = await parseErrorResponse(response);
+      throw new Error(msg);
+    }
+
+    return await response.json();
+  }
+
   async deleteMock(id) {
     const response = await fetch(apiUrl(`${apiConfig.adminPath}/${id}`), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -109,7 +121,6 @@ class MockService {
   async toggleMock(id) {
     const response = await fetch(apiUrl(`${apiConfig.adminPath}/${id}/toggle`), {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -123,7 +134,6 @@ class MockService {
   async clearAllMocks() {
     const response = await fetch(apiUrl(`${apiConfig.adminPath}/clear`), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -167,7 +177,6 @@ class MockService {
   async resetSequence(id) {
     const response = await fetch(apiUrl(`${apiConfig.adminPath}/${id}/sequence/reset`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -181,7 +190,6 @@ class MockService {
   async resetAllSequences() {
     const response = await fetch(apiUrl(`${apiConfig.adminPath}/sequence/reset-all`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {

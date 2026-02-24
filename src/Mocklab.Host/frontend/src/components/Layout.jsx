@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Ripple } from 'primereact/ripple';
-import { classNames } from 'primereact/utils';
-import { Badge } from 'primereact/badge';
-import { requestLogService } from '../services/requestLogService';
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Ripple } from "primereact/ripple";
+import { classNames } from "primereact/utils";
+import { Badge } from "primereact/badge";
+import { requestLogService } from "../services/requestLogService";
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -15,16 +15,21 @@ export default function Layout() {
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 991);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const result = await requestLogService.getLogs({ page: 1, pageSize: 1 });
+        const result = await requestLogService.getLogs({
+          page: 1,
+          pageSize: 1,
+        });
         setLogCount(result.totalCount);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
     fetchCount();
     const interval = setInterval(fetchCount, 30000);
@@ -44,33 +49,50 @@ export default function Layout() {
         setMobileMenuActive(false);
       }
     };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, [mobileMenuActive]);
 
   const navItems = [
-    { label: 'Mock Responses', icon: 'pi pi-database', to: '/' },
-    { label: 'Request Logs', icon: 'pi pi-list', to: '/logs', badge: logCount > 0 ? String(logCount) : null },
-    { label: 'Collections', icon: 'pi pi-folder', to: '/collections' },
+    { label: "Mock Responses", icon: "pi pi-database", to: "/" },
+    {
+      label: "Request Logs",
+      icon: "pi pi-list",
+      to: "/logs",
+      badge: logCount > 0 ? String(logCount) : null,
+    },
   ];
 
   const resourceItems = [
-    { label: 'API Docs', icon: 'pi pi-book', url: '/openapi/v1.json', target: '_blank' },
-    { label: 'GitHub', icon: 'pi pi-github', url: 'https://github.com', target: '_blank' },
+    {
+      label: "API Docs",
+      icon: "pi pi-book",
+      url: "/openapi/v1.json",
+      target: "_blank",
+    },
+    {
+      label: "GitHub",
+      icon: "pi pi-github",
+      url: "https://github.com/burgan-tech/mocklab",
+      target: "_blank",
+    },
   ];
 
   const onMenuToggle = useCallback(() => {
-    setMobileMenuActive(prev => !prev);
+    setMobileMenuActive((prev) => !prev);
   }, []);
 
-  const onNavItemClick = useCallback((item) => {
-    if (item.to) {
-      navigate(item.to);
-    }
-  }, [navigate]);
+  const onNavItemClick = useCallback(
+    (item) => {
+      if (item.to) {
+        navigate(item.to);
+      }
+    },
+    [navigate],
+  );
 
   const isActiveRoute = (item) => {
-    if (item.to === '/') return location.pathname === '/';
+    if (item.to === "/") return location.pathname === "/";
     return item.to && location.pathname.startsWith(item.to);
   };
 
@@ -79,11 +101,13 @@ export default function Layout() {
       {/* Topbar */}
       <div className="layout-topbar">
         <div className="layout-topbar-start">
-          <div className="layout-topbar-logo" onClick={() => navigate('/')}>
+          <div className="layout-topbar-logo" onClick={() => navigate("/")}>
             <i className="pi pi-server"></i>
             <div className="layout-topbar-logo-text">
               <span className="layout-topbar-app-name">Mocklab</span>
-              <span className="layout-topbar-app-subtitle">API MOCK SERVER</span>
+              <span className="layout-topbar-app-subtitle">
+                API MOCK SERVER
+              </span>
             </div>
           </div>
         </div>
@@ -94,8 +118,8 @@ export default function Layout() {
             <a
               key={idx}
               onClick={() => onNavItemClick(item)}
-              className={classNames('layout-topbar-nav-item p-ripple', {
-                'active-route': isActiveRoute(item),
+              className={classNames("layout-topbar-nav-item p-ripple", {
+                "active-route": isActiveRoute(item),
               })}
             >
               <i className={item.icon}></i>
@@ -111,8 +135,8 @@ export default function Layout() {
             <a
               key={idx}
               href={item.url}
-              target={item.target || '_self'}
-              rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+              target={item.target || "_self"}
+              rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
               className="layout-topbar-button"
               title={item.label}
             >
@@ -126,7 +150,11 @@ export default function Layout() {
             onClick={onMenuToggle}
             aria-label="Toggle Menu"
           >
-            <i className={classNames(mobileMenuActive ? 'pi pi-times' : 'pi pi-bars')}></i>
+            <i
+              className={classNames(
+                mobileMenuActive ? "pi pi-times" : "pi pi-bars",
+              )}
+            ></i>
           </button>
         </div>
       </div>
@@ -134,7 +162,10 @@ export default function Layout() {
       {/* Mobile dropdown menu */}
       {isMobile && mobileMenuActive && (
         <>
-          <div className="layout-mobile-mask" onClick={() => setMobileMenuActive(false)}></div>
+          <div
+            className="layout-mobile-mask"
+            onClick={() => setMobileMenuActive(false)}
+          ></div>
           <div className="layout-mobile-menu" ref={menuRef}>
             <div className="layout-mobile-menu-section">
               <span className="layout-mobile-menu-label">Navigation</span>
@@ -142,8 +173,8 @@ export default function Layout() {
                 <a
                   key={idx}
                   onClick={() => onNavItemClick(item)}
-                  className={classNames('layout-mobile-menu-item p-ripple', {
-                    'active-route': isActiveRoute(item),
+                  className={classNames("layout-mobile-menu-item p-ripple", {
+                    "active-route": isActiveRoute(item),
                   })}
                 >
                   <i className={item.icon}></i>
@@ -160,13 +191,15 @@ export default function Layout() {
                 <a
                   key={idx}
                   href={item.url}
-                  target={item.target || '_self'}
-                  rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                  target={item.target || "_self"}
+                  rel={
+                    item.target === "_blank" ? "noopener noreferrer" : undefined
+                  }
                   className="layout-mobile-menu-item p-ripple"
                 >
                   <i className={item.icon}></i>
                   <span>{item.label}</span>
-                  {item.target === '_blank' && (
+                  {item.target === "_blank" && (
                     <i className="pi pi-external-link layout-mobile-menu-external"></i>
                   )}
                   <Ripple />

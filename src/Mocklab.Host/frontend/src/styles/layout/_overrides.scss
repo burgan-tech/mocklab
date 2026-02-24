@@ -156,3 +156,35 @@
   width: 6px;
   height: 6px;
 }
+
+/* Collapsible sidebar layout */
+.mocklab-split-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.mocklab-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+
+  .card {
+    position: sticky;
+    top: 5rem;
+  }
+}
+
+.mocklab-main-content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media screen and (max-width: 768px) {
+  .mocklab-split-layout {
+    flex-direction: column;
+  }
+
+  .mocklab-sidebar {
+    width: 100%;
+  }
+}

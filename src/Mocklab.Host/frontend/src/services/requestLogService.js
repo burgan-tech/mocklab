@@ -19,10 +19,7 @@ class RequestLogService {
       ? `${apiConfig.adminLogsPath}?${queryString}`
       : apiConfig.adminLogsPath;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
       let detail = '';
@@ -34,10 +31,7 @@ class RequestLogService {
   }
 
   async getLog(id) {
-    const response = await fetch(`${apiConfig.adminLogsPath}/${id}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(`${apiConfig.adminLogsPath}/${id}`);
 
     if (!response.ok) {
       throw new Error('Failed to fetch request log');
@@ -47,10 +41,7 @@ class RequestLogService {
   }
 
   async getRecentCount(minutes = 5) {
-    const response = await fetch(`${apiConfig.adminLogsPath}/count?minutes=${minutes}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(`${apiConfig.adminLogsPath}/count?minutes=${minutes}`);
 
     if (!response.ok) {
       throw new Error('Failed to fetch log count');
@@ -62,7 +53,6 @@ class RequestLogService {
   async clearLogs() {
     const response = await fetch(`${apiConfig.adminLogsPath}/clear`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {

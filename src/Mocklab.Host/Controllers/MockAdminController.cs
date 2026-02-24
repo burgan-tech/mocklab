@@ -309,6 +309,129 @@ public class MockAdminController(
     }
 
     /// <summary>
+    /// Duplicate a mock response (with rules and sequence items) into the same or a different collection/folder
+    /// </summary>
+    [HttpPost("{id}/duplicate")]
+    public async Task<IActionResult> DuplicateMock(int id, [FromBody] DuplicateMockRequest? request = null)
+    {
+        var source = await _dbContext.MockResponses
+            .Include(m => m.Rules)
+            .Include(m => m.SequenceItems)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == id);
+
+        if (source == null)
+            return NotFound(new { Error = "Mock response not found" });
+
+        var targetCollectionId = request?.CollectionId ?? source.CollectionId;
+        var targetFolderId = request?.FolderId;
+        if (request?.CollectionId == null && request?.FolderId == null)
+            targetFolderId = source.FolderId;
+
+        if (targetFolderId.HasValue && targetCollectionId.HasValue)
+        {
+            var folder = await _dbContext.MockFolders
+                .FirstOrDefaultAsync(f => f.Id == targetFolderId.Value && f.CollectionId == targetCollectionId.Value);
+            if (folder == null)
+                return BadRequest(new { Error = "Target folder not found or does not belong to the selected collection" });
+        }
+
+        var suffix = " (Copy)";
+        var baseRoute = source.Route;
+        var newRoute = baseRoute + suffix;
+
+        var counter = 2;
+        while (await ExistsMockWithSameMethodAndRouteAsync(targetCollectionId, source.HttpMethod, newRoute))
+        {
+            newRoute = $"{baseRoute} (Copy {counter})";
+            counter++;
+        }
+
+        var clone = new MockResponse
+        {
+            HttpMethod = source.HttpMethod,
+            Route = newRoute,
+            QueryString = source.QueryString,
+            RequestBody = source.RequestBody,
+            StatusCode = source.StatusCode,
+            ResponseBody = source.ResponseBody,
+            ContentType = source.ContentType,
+            Description = string.IsNullOrEmpty(source.Description) ? null : source.Description + suffix,
+            DelayMs = source.DelayMs,
+            CollectionId = targetCollectionId,
+            FolderId = targetFolderId,
+            IsSequential = source.IsSequential,
+            IsActive = source.IsActive,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        foreach (var rule in source.Rules)
+        {
+            clone.Rules.Add(new MockResponseRule
+            {
+                ConditionField = rule.ConditionField,
+                ConditionOperator = rule.ConditionOperator,
+                ConditionValue = rule.ConditionValue,
+                StatusCode = rule.StatusCode,
+                ResponseBody = rule.ResponseBody,
+                ContentType = rule.ContentType,
+                Priority = rule.Priority
+            });
+        }
+
+        foreach (var seq in source.SequenceItems)
+        {
+            clone.SequenceItems.Add(new MockResponseSequenceItem
+            {
+                Order = seq.Order,
+                StatusCode = seq.StatusCode,
+                ResponseBody = seq.ResponseBody,
+                ContentType = seq.ContentType,
+                DelayMs = seq.DelayMs
+            });
+        }
+
+        _dbContext.MockResponses.Add(clone);
+        await _dbContext.SaveChangesAsync();
+
+        // Copy rule response headers (KeyValueEntry)
+        if (source.Rules.Count > 0)
+        {
+            var sourceRuleIds = source.Rules.Select(r => r.Id).ToList();
+            var headerEntries = await _dbContext.KeyValueEntries
+                .Where(k => k.OwnerType == KeyValueOwnerTypeMockResponseRule && sourceRuleIds.Contains(k.OwnerId))
+                .ToListAsync();
+            var headersByRuleId = headerEntries
+                .GroupBy(k => k.OwnerId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var sourceRulesList = source.Rules.OrderBy(r => r.Priority).ToList();
+            var cloneRulesList = clone.Rules.OrderBy(r => r.Priority).ToList();
+            for (var i = 0; i < sourceRulesList.Count && i < cloneRulesList.Count; i++)
+            {
+                if (headersByRuleId.TryGetValue(sourceRulesList[i].Id, out var entries))
+                {
+                    foreach (var entry in entries)
+                    {
+                        _dbContext.KeyValueEntries.Add(new KeyValueEntry
+                        {
+                            OwnerType = KeyValueOwnerTypeMockResponseRule,
+                            OwnerId = cloneRulesList[i].Id,
+                            Key = entry.Key,
+                            Value = entry.Value
+                        });
+                    }
+                }
+            }
+            await _dbContext.SaveChangesAsync();
+        }
+
+        _logger.LogInformation("Mock duplicated: SourceId={SourceId}, NewId={NewId}", id, clone.Id);
+
+        return CreatedAtAction(nameof(GetMock), new { id = clone.Id }, clone);
+    }
+
+    /// <summary>
     /// Delete mock response
     /// </summary>
     [HttpDelete("{id}")]
