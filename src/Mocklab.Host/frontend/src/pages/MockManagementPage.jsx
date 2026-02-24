@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
@@ -28,6 +29,7 @@ import { JsonBodyEditor } from '../components/JsonBodyEditor';
 import { TemplateVariablesModal } from '../components/TemplateVariablesModal';
 
 export default function MockManagementPage() {
+  const navigate = useNavigate();
   const [mocks, setMocks] = useState([]);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -640,6 +642,7 @@ export default function MockManagementPage() {
     if (type === 'collection' && collectionId) {
       items.push({ label: 'Edit collection', icon: 'pi pi-pencil', command: () => openEditCollectionDialog(collectionId) });
       items.push({ label: 'New folder', icon: 'pi pi-folder-plus', command: () => openFolderDialog(collectionId) });
+      items.push({ label: 'Data Buckets', icon: 'pi pi-database', command: () => navigate(`/data-buckets/${collectionId}`) });
       items.push({ separator: true });
       items.push({ label: 'Export collection', icon: 'pi pi-download', command: () => exportCollectionById(collectionId) });
       items.push({ separator: true });
