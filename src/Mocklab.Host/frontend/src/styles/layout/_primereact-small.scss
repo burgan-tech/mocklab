@@ -10,6 +10,14 @@
   border-radius: $borderRadius !important;
 }
 
+.p-icon-field-left > .p-inputtext {
+  padding-left: 2rem !important;
+}
+
+.p-icon-field-right > .p-inputtext {
+  padding-right: 2rem !important;
+}
+
 .p-inputtext::placeholder {
   font-size: 0.8125rem;
 }

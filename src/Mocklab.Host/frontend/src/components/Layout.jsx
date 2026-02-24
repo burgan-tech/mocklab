@@ -3,18 +3,32 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Ripple } from 'primereact/ripple';
 import { classNames } from 'primereact/utils';
 import { Badge } from 'primereact/badge';
+import { requestLogService } from '../services/requestLogService';
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuActive, setMobileMenuActive] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 991);
+  const [logCount, setLogCount] = useState(null);
   const menuRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 991);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const result = await requestLogService.getLogs({ page: 1, pageSize: 1 });
+        setLogCount(result.totalCount);
+      } catch { /* ignore */ }
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Close mobile menu on route change
@@ -36,7 +50,7 @@ export default function Layout() {
 
   const navItems = [
     { label: 'Mock Responses', icon: 'pi pi-database', to: '/' },
-    { label: 'Request Logs', icon: 'pi pi-list', to: '/logs', badge: '23' },
+    { label: 'Request Logs', icon: 'pi pi-list', to: '/logs', badge: logCount > 0 ? String(logCount) : null },
     { label: 'Collections', icon: 'pi pi-folder', to: '/collections' },
   ];
 

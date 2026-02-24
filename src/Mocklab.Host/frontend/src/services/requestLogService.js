@@ -1,7 +1,7 @@
 import apiConfig from '../config/apiConfig';
 
 class RequestLogService {
-  async getLogs({ method, statusCode, isMatched, from, to, page, pageSize } = {}) {
+  async getLogs({ method, statusCode, isMatched, from, to, route, search, page, pageSize } = {}) {
     const params = new URLSearchParams();
 
     if (method) params.append('method', method);
@@ -9,6 +9,8 @@ class RequestLogService {
     if (isMatched !== undefined && isMatched !== null) params.append('isMatched', isMatched);
     if (from) params.append('from', from);
     if (to) params.append('to', to);
+    if (route) params.append('route', route);
+    if (search) params.append('search', search);
     if (page) params.append('page', page);
     if (pageSize) params.append('pageSize', pageSize);
 
@@ -23,7 +25,9 @@ class RequestLogService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch request logs');
+      let detail = '';
+      try { detail = await response.text(); } catch {}
+      throw new Error(`Server error ${response.status}: ${detail || response.statusText}`);
     }
 
     return await response.json();
