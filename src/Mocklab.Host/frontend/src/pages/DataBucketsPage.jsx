@@ -392,7 +392,7 @@ export default function DataBucketsPage() {
 
   const leftToolbarTemplate = () => (
     <div className="flex gap-2">
-      <Button label="Back to Collections" icon="pi pi-arrow-left" outlined onClick={() => navigate('/collections')} />
+      <Button label="Back" icon="pi pi-arrow-left" outlined onClick={() => navigate('/')} />
       <Button label="New Data Bucket" icon="pi pi-plus" severity="success" onClick={openNew} />
       <Button
         label="Export all"
@@ -420,7 +420,7 @@ export default function DataBucketsPage() {
     return (
       <div className="p-4">
         <p>Invalid collection.</p>
-        <Button label="Back to Collections" onClick={() => navigate('/collections')} />
+        <Button label="Back" onClick={() => navigate('/')} />
       </div>
     );
   }

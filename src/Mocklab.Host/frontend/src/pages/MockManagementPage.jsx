@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
@@ -20,6 +21,7 @@ import { InputIcon } from 'primereact/inputicon';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Tree } from 'primereact/tree';
 import { ContextMenu } from 'primereact/contextmenu';
+import { FileUpload } from 'primereact/fileupload';
 import { mockService } from '../services/mockService';
 import { collectionService } from '../services/collectionService';
 import { folderService } from '../services/folderService';
@@ -27,6 +29,7 @@ import { JsonBodyEditor } from '../components/JsonBodyEditor';
 import { TemplateVariablesModal } from '../components/TemplateVariablesModal';
 
 export default function MockManagementPage() {
+  const navigate = useNavigate();
   const [mocks, setMocks] = useState([]);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -44,10 +47,15 @@ export default function MockManagementPage() {
   const [templateVariablesModalVisible, setTemplateVariablesModalVisible] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [activeRuleSubTab, setActiveRuleSubTab] = useState({});
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [importCollectionDialog, setImportCollectionDialog] = useState(false);
+  const [importCollectionJson, setImportCollectionJson] = useState('');
+  const [importCollectionLoading, setImportCollectionLoading] = useState(false);
   const [treeSelectionKey, setTreeSelectionKey] = useState('all');
   const [treeSelectionData, setTreeSelectionData] = useState({ type: 'all' });
   const [folderDialog, setFolderDialog] = useState(false);
   const [newFolderCollectionId, setNewFolderCollectionId] = useState(null);
+  const [newFolderParentId, setNewFolderParentId] = useState(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderColor, setNewFolderColor] = useState('');
   const [folderDialogLoading, setFolderDialogLoading] = useState(false);
@@ -89,8 +97,15 @@ export default function MockManagementPage() {
   const [bulkMoveCollectionId, setBulkMoveCollectionId] = useState(null);
   const [bulkMoveFolderId, setBulkMoveFolderId] = useState(null);
   const [bulkMoveLoading, setBulkMoveLoading] = useState(false);
+  const [cloneDialog, setCloneDialog] = useState(false);
+  const [cloneMockId, setCloneMockId] = useState(null);
+  const [cloneCollectionId, setCloneCollectionId] = useState(null);
+  const [cloneFolderId, setCloneFolderId] = useState(null);
+  const [cloneLoading, setCloneLoading] = useState(false);
+  const [dragOverNodeKey, setDragOverNodeKey] = useState(null);
   const toast = useRef(null);
   const contextMenuRef = useRef(null);
+  const draggedMockRef = useRef(null);
 
   const emptyMock = {
     httpMethod: 'GET',
@@ -291,8 +306,9 @@ export default function MockManagementPage() {
 
   const loadMocks = () => loadMocksForSelection(treeSelectionData);
 
-  const openFolderDialog = (presetCollectionId = null) => {
+  const openFolderDialog = (presetCollectionId = null, parentFolderId = null) => {
     setNewFolderCollectionId(presetCollectionId ?? (collections.length ? collections[0].id : null));
+    setNewFolderParentId(parentFolderId);
     setNewFolderName('');
     setNewFolderColor('');
     setFolderDialog(true);
@@ -459,6 +475,66 @@ export default function MockManagementPage() {
     }
   };
 
+  const exportCollectionById = async (collectionId) => {
+    const col = collections.find((c) => c.id === collectionId);
+    if (!col) return;
+    try {
+      const data = await collectionService.exportCollection(col.id);
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${col.name.toLowerCase().replace(/\s+/g, '-')}-collection.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.current.show({ severity: 'success', summary: 'Success', detail: 'Collection exported successfully', life: 3000 });
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to export: ' + error.message, life: 3000 });
+    }
+  };
+
+  const importCollectionFromJson = async () => {
+    if (!importCollectionJson.trim()) {
+      toast.current.show({ severity: 'warn', summary: 'Warning', detail: 'Please paste collection JSON or upload a file', life: 3000 });
+      return;
+    }
+    setImportCollectionLoading(true);
+    try {
+      const data = JSON.parse(importCollectionJson);
+      const result = await collectionService.importCollection(data);
+      toast.current.show({ severity: 'success', summary: 'Success', detail: result.message, life: 4000 });
+      setImportCollectionDialog(false);
+      setImportCollectionJson('');
+      loadCollections();
+      loadMocks();
+    } catch (error) {
+      toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 5000 });
+    } finally {
+      setImportCollectionLoading(false);
+    }
+  };
+
+  const onCollectionFileUpload = (e) => {
+    const file = e.files && e.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        JSON.parse(text);
+        setImportCollectionJson(text);
+        toast.current.show({ severity: 'info', summary: 'File Loaded', detail: `"${file.name}" loaded. Click Import to proceed.`, life: 3000 });
+      } catch {
+        toast.current.show({ severity: 'error', summary: 'Invalid JSON', detail: 'The uploaded file does not contain valid JSON.', life: 4000 });
+      }
+    };
+    reader.readAsText(file);
+    e.options.clear();
+  };
+
   const saveNewCollection = async () => {
     if (!newCollectionName.trim()) {
       toast.current.show({ severity: 'warn', summary: 'Warning', detail: 'Name is required', life: 3000 });
@@ -491,7 +567,9 @@ export default function MockManagementPage() {
     }
     setFolderDialogLoading(true);
     try {
-      await folderService.createFolder(newFolderCollectionId, { name: newFolderName.trim(), color: newFolderColor.trim() || null });
+      const folderData = { name: newFolderName.trim(), color: newFolderColor.trim() || null };
+      if (newFolderParentId) folderData.parentFolderId = newFolderParentId;
+      await folderService.createFolder(newFolderCollectionId, folderData);
       toast.current.show({ severity: 'success', summary: 'Success', detail: 'Folder created', life: 3000 });
       setFolderDialog(false);
       loadCollections();
@@ -564,14 +642,21 @@ export default function MockManagementPage() {
     if (type === 'collection' && collectionId) {
       items.push({ label: 'Edit collection', icon: 'pi pi-pencil', command: () => openEditCollectionDialog(collectionId) });
       items.push({ label: 'New folder', icon: 'pi pi-folder-plus', command: () => openFolderDialog(collectionId) });
-      items.push({ label: 'Delete collection', icon: 'pi pi-trash', command: () => openDeleteCollectionDialog(collectionId) });
+      items.push({ label: 'Data Buckets', icon: 'pi pi-database', command: () => navigate(`/data-buckets/${collectionId}`) });
+      items.push({ separator: true });
+      items.push({ label: 'Export collection', icon: 'pi pi-download', command: () => exportCollectionById(collectionId) });
+      items.push({ separator: true });
+      items.push({ label: 'Delete collection', icon: 'pi pi-trash', className: 'text-red-500', command: () => openDeleteCollectionDialog(collectionId) });
     }
     if ((type === 'collectionAll' || type === 'collectionUncategorized') && collectionId) {
       items.push({ label: 'New folder', icon: 'pi pi-folder-plus', command: () => openFolderDialog(collectionId) });
     }
     if (type === 'folder' && folderId && collectionId) {
+      items.push({ label: 'New mock here', icon: 'pi pi-plus', command: () => openNewMockInFolder(collectionId, folderId) });
+      items.push({ label: 'New subfolder', icon: 'pi pi-folder-plus', command: () => openFolderDialog(collectionId, folderId) });
+      items.push({ separator: true });
       items.push({ label: 'Edit folder', icon: 'pi pi-pencil', command: () => openEditFolderDialog(folderId, collectionId) });
-      items.push({ label: 'Delete folder', icon: 'pi pi-trash', command: () => openDeleteFolderDialog(folderId, collectionId) });
+      items.push({ label: 'Delete folder', icon: 'pi pi-trash', className: 'text-red-500', command: () => openDeleteFolderDialog(folderId, collectionId) });
     }
     return items;
   }, [contextMenuNodeData]);
@@ -591,6 +676,14 @@ export default function MockManagementPage() {
 
   const openNew = () => {
     setMock(emptyMock);
+    setIsEditMode(false);
+    setActiveTabIndex(0);
+    setTemplateVariablesModalVisible(false);
+    setMockDialog(true);
+  };
+
+  const openNewMockInFolder = (collectionId, folderId) => {
+    setMock({ ...emptyMock, collectionId, folderId });
     setIsEditMode(false);
     setActiveTabIndex(0);
     setTemplateVariablesModalVisible(false);
@@ -658,6 +751,7 @@ export default function MockManagementPage() {
       setActiveTabIndex(0);
       setActiveRuleSubTab({});
       loadMocks();
+      loadCollections();
     } catch (error) {
       toast.current.show({
         severity: 'error',
@@ -708,6 +802,7 @@ export default function MockManagementPage() {
             life: 3000
           });
           loadMocks();
+          loadCollections();
         } catch (error) {
           toast.current.show({
             severity: 'error',
@@ -730,6 +825,7 @@ export default function MockManagementPage() {
         life: 3000
       });
       loadMocks();
+      loadCollections();
     } catch (error) {
       toast.current.show({
         severity: 'error',
@@ -758,6 +854,132 @@ export default function MockManagementPage() {
       });
     }
   };
+
+  const duplicateMock = async (mockRow) => {
+    try {
+      await mockService.duplicateMock(mockRow.id);
+      toast.current.show({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Mock duplicated successfully',
+        life: 3000
+      });
+      loadMocks();
+      loadCollections();
+    } catch (error) {
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to duplicate mock: ' + error.message,
+        life: 3000
+      });
+    }
+  };
+
+  const openCloneDialog = (mockRow) => {
+    setCloneMockId(mockRow.id);
+    setCloneCollectionId(null);
+    setCloneFolderId(null);
+    setCloneDialog(true);
+  };
+
+  const saveClone = async () => {
+    if (!cloneMockId) return;
+    setCloneLoading(true);
+    try {
+      await mockService.duplicateMock(cloneMockId, cloneCollectionId, cloneFolderId);
+      toast.current.show({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Mock cloned to collection successfully',
+        life: 3000
+      });
+      setCloneDialog(false);
+      loadMocks();
+      loadCollections();
+    } catch (error) {
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to clone mock: ' + error.message,
+        life: 3000
+      });
+    } finally {
+      setCloneLoading(false);
+    }
+  };
+
+  const onMockDragStart = (e, mockRow) => {
+    draggedMockRef.current = mockRow;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', mockRow.id.toString());
+  };
+
+  const onTreeNodeDragOver = (e, nodeKey) => {
+    if (!draggedMockRef.current) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverNodeKey(nodeKey);
+  };
+
+  const onTreeNodeDragLeave = () => {
+    setDragOverNodeKey(null);
+  };
+
+  const onTreeNodeDrop = async (e, nodeData) => {
+    e.preventDefault();
+    setDragOverNodeKey(null);
+    const mock = draggedMockRef.current;
+    draggedMockRef.current = null;
+    if (!mock) return;
+
+    const { type, collectionId, folderId } = nodeData;
+    let targetCollectionId = null;
+    let targetFolderId = null;
+
+    if (type === 'collection' || type === 'collectionAll' || type === 'collectionUncategorized') {
+      targetCollectionId = collectionId;
+    } else if (type === 'folder') {
+      targetCollectionId = collectionId;
+      targetFolderId = folderId;
+    } else if (type === 'uncategorized' || type === 'all') {
+      targetCollectionId = null;
+    } else {
+      return;
+    }
+
+    if (mock.collectionId === targetCollectionId && mock.folderId === targetFolderId) return;
+
+    try {
+      await mockService.bulkUpdateMocks([mock.id], targetCollectionId, targetFolderId);
+      toast.current.show({
+        severity: 'success',
+        summary: 'Moved',
+        detail: `Mock moved successfully`,
+        life: 2000
+      });
+      loadMocks();
+      loadCollections();
+    } catch (error) {
+      toast.current.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to move mock: ' + error.message,
+        life: 3000
+      });
+    }
+  };
+
+  const dragHandleTemplate = (rowData) => (
+    <div
+      draggable
+      onDragStart={(e) => onMockDragStart(e, rowData)}
+      className="cursor-move flex align-items-center justify-content-center"
+      style={{ padding: '0.25rem' }}
+    >
+      <i className="pi pi-bars text-color-secondary" />
+    </div>
+  );
 
   const clearAllMocks = () => {
     confirmDialog({
@@ -964,10 +1186,10 @@ export default function MockManagementPage() {
   };
 
   const actionBodyTemplate = (rowData) => (
-    <div className="flex gap-2">
+    <div className="flex gap-1">
       <Button
         icon={rowData.isActive ? 'pi pi-eye-slash' : 'pi pi-eye'}
-        rounded outlined
+        rounded text
         severity={rowData.isActive ? 'warning' : 'success'}
         className="p-button-sm"
         onClick={() => toggleMock(rowData)}
@@ -976,16 +1198,34 @@ export default function MockManagementPage() {
       />
       <Button
         icon="pi pi-pencil"
-        rounded outlined
+        rounded text
         className="p-button-sm"
         onClick={() => editMock(rowData)}
         tooltip="Edit"
         tooltipOptions={{ position: 'top' }}
       />
+      <Button
+        icon="pi pi-copy"
+        rounded text
+        severity="info"
+        className="p-button-sm"
+        onClick={() => duplicateMock(rowData)}
+        tooltip="Duplicate"
+        tooltipOptions={{ position: 'top' }}
+      />
+      <Button
+        icon="pi pi-clone"
+        rounded text
+        severity="help"
+        className="p-button-sm"
+        onClick={() => openCloneDialog(rowData)}
+        tooltip="Clone to collection"
+        tooltipOptions={{ position: 'top' }}
+      />
       {rowData.isSequential && rowData.sequenceItems && rowData.sequenceItems.length > 0 && (
         <Button
           icon="pi pi-replay"
-          rounded outlined
+          rounded text
           severity="help"
           className="p-button-sm"
           onClick={() => resetSequence(rowData)}
@@ -995,7 +1235,7 @@ export default function MockManagementPage() {
       )}
       <Button
         icon="pi pi-trash"
-        rounded outlined
+        rounded text
         severity="danger"
         className="p-button-sm"
         onClick={() => deleteMock(rowData)}
@@ -1349,7 +1589,7 @@ export default function MockManagementPage() {
 
       <Dialog
         visible={folderDialog}
-        header="New Folder"
+        header={newFolderParentId ? 'New Subfolder' : 'New Folder'}
         modal
         className="p-fluid"
         style={{ width: '22rem' }}
@@ -1370,6 +1610,7 @@ export default function MockManagementPage() {
             onChange={(e) => setNewFolderCollectionId(e.value)}
             placeholder="Select collection"
             className="w-full"
+            disabled={!!newFolderParentId}
           />
         </div>
         <div className="field">
@@ -1760,6 +2001,48 @@ export default function MockManagementPage() {
         </div>
       </Dialog>
 
+      <Dialog
+        visible={cloneDialog}
+        header="Clone Mock to Collection"
+        modal
+        className="p-fluid"
+        style={{ width: '22rem' }}
+        onHide={() => setCloneDialog(false)}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined onClick={() => setCloneDialog(false)} />
+            <Button label="Clone" icon="pi pi-clone" loading={cloneLoading} onClick={saveClone} />
+          </>
+        }
+      >
+        <div className="field">
+          <label>Target Collection</label>
+          <Dropdown
+            value={cloneCollectionId}
+            options={collections.map((c) => ({ label: c.name, value: c.id }))}
+            onChange={(e) => { setCloneCollectionId(e.value); setCloneFolderId(null); }}
+            placeholder="Select collection (or leave uncategorized)"
+            className="w-full"
+            showClear
+          />
+        </div>
+        <div className="field">
+          <label>Target Folder</label>
+          <Dropdown
+            value={cloneFolderId}
+            options={[
+              { label: 'Uncategorized', value: null },
+              ...(collections.find((c) => c.id === cloneCollectionId)?.folders || []).map((f) => ({ label: f.name, value: f.id }))
+            ]}
+            onChange={(e) => setCloneFolderId(e.value)}
+            placeholder="Uncategorized"
+            className="w-full"
+            disabled={!cloneCollectionId}
+            showClear
+          />
+        </div>
+      </Dialog>
+
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-icon">
@@ -1771,42 +2054,92 @@ export default function MockManagementPage() {
         </div>
       </div>
 
-      {/* Main Content: split layout — collection tree (left) + route table (right) */}
-      <div className="grid">
-        <div className="col-12 md:col-4 lg:col-3">
-          <div className="card h-full">
-            <div className="flex align-items-center justify-content-between mb-3">
-              <h5 className="mt-0 mb-0">Collections</h5>
-              <Button icon="pi pi-plus" rounded text size="small" onClick={() => { setNewCollectionName(''); setNewCollectionDescription(''); setNewCollectionColor(''); setNewCollectionDialog(true); }} tooltip="New collection" tooltipOptions={{ position: 'bottom' }} />
-            </div>
-            <Tree
-              value={treeNodes}
-              selectionMode="single"
-              selectionKeys={treeSelectionKey}
-              onSelectionChange={onTreeSelectionChange}
-              onContextMenu={onTreeContextMenu}
-              contextMenuSelectionKey={contextMenuNodeKey}
-              onContextMenuSelectionChange={(e) => setContextMenuNodeKey(e.value ?? null)}
-              className="w-full border-none"
-              filter
-              filterPlaceholder="Search..."
-              nodeTemplate={(node) => (
-                <div className="flex align-items-center gap-2">
-                  {node.data?.color ? (
-                    <span
-                      className="flex-shrink-0 border-circle border-1 border-400"
-                      style={{ width: '0.75rem', height: '0.75rem', backgroundColor: node.data.color }}
-                      title={node.data.color}
-                    />
-                  ) : null}
-                  <span>{node.label}</span>
+      {/* Main Content: collapsible sidebar + table */}
+      <div className="mocklab-split-layout">
+        {sidebarVisible && (
+          <div className="mocklab-sidebar">
+            <div className="card h-full">
+              <div className="flex align-items-center justify-content-between mb-3">
+                <h5 className="mt-0 mb-0">Collections</h5>
+                <div className="flex align-items-center gap-1">
+                  <Button icon="pi pi-upload" rounded text size="small" onClick={() => { setImportCollectionJson(''); setImportCollectionDialog(true); }} tooltip="Import collection" tooltipOptions={{ position: 'bottom' }} />
+                  <Button icon="pi pi-plus" rounded text size="small" onClick={() => { setNewCollectionName(''); setNewCollectionDescription(''); setNewCollectionColor(''); setNewCollectionDialog(true); }} tooltip="New collection" tooltipOptions={{ position: 'bottom' }} />
+                  <Button icon="pi pi-angle-double-left" rounded text size="small" onClick={() => setSidebarVisible(false)} tooltip="Collapse" tooltipOptions={{ position: 'bottom' }} />
                 </div>
-              )}
-            />
-            <ContextMenu model={contextMenuModel} ref={contextMenuRef} />
+              </div>
+              <Tree
+                value={treeNodes}
+                selectionMode="single"
+                selectionKeys={treeSelectionKey}
+                onSelectionChange={onTreeSelectionChange}
+                onContextMenu={onTreeContextMenu}
+                contextMenuSelectionKey={contextMenuNodeKey}
+                onContextMenuSelectionChange={(e) => setContextMenuNodeKey(e.value ?? null)}
+                className="w-full border-none"
+                filter
+                filterPlaceholder="Search..."
+                nodeTemplate={(node) => {
+                  const nodeType = node.data?.type;
+                  const hasMenu = nodeType === 'collection' || nodeType === 'folder' || nodeType === 'collectionAll' || nodeType === 'collectionUncategorized';
+                  return (
+                    <div
+                      className="mocklab-tree-node flex align-items-center gap-2"
+                      onDragOver={(e) => onTreeNodeDragOver(e, node.key)}
+                      onDragLeave={onTreeNodeDragLeave}
+                      onDrop={(e) => onTreeNodeDrop(e, node.data || {})}
+                      style={{
+                        padding: '0.15rem 0.25rem',
+                        borderRadius: '4px',
+                        flex: 1,
+                        ...(dragOverNodeKey === node.key ? { backgroundColor: 'var(--primary-100)', outline: '2px solid var(--primary-color)' } : {})
+                      }}
+                    >
+                      {node.data?.color ? (
+                        <span
+                          className="flex-shrink-0 border-circle border-1 border-400"
+                          style={{ width: '0.75rem', height: '0.75rem', backgroundColor: node.data.color }}
+                          title={node.data.color}
+                        />
+                      ) : null}
+                      <span className="flex-1 white-space-nowrap overflow-hidden text-overflow-ellipsis">{node.label}</span>
+                      {hasMenu && (
+                        <button
+                          type="button"
+                          className="mocklab-tree-node-menu p-link flex align-items-center justify-content-center"
+                          style={{ width: '1.25rem', height: '1.25rem', borderRadius: '3px', flexShrink: 0 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setContextMenuNodeKey(node.key);
+                            setTimeout(() => {
+                              if (contextMenuRef.current) contextMenuRef.current.show(e);
+                            }, 0);
+                          }}
+                          title="Actions"
+                        >
+                          <i className="pi pi-ellipsis-h" style={{ fontSize: '0.75rem' }} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+              <ContextMenu model={contextMenuModel} ref={contextMenuRef} />
+            </div>
           </div>
-        </div>
-        <div className="col-12 md:col-8 lg:col-9">
+        )}
+        <div className="mocklab-main-content">
+          {!sidebarVisible && (
+            <Button
+              icon="pi pi-angle-double-right"
+              rounded
+              text
+              size="small"
+              onClick={() => setSidebarVisible(true)}
+              tooltip="Show collections"
+              tooltipOptions={{ position: 'right' }}
+              className="mb-2"
+            />
+          )}
           <div className="card">
             <Toolbar className="mb-4" start={leftToolbarTemplate} end={rightToolbarTemplate} />
 
@@ -1835,9 +2168,10 @@ export default function MockManagementPage() {
               size="small"
               scrollable
               scrollHeight="flex"
-              tableStyle={{ minWidth: '70rem' }}
+              tableStyle={{ minWidth: '50rem' }}
             >
               <Column selectionMode="multiple" exportable={false} frozen style={{ width: '3rem' }} />
+              <Column body={dragHandleTemplate} exportable={false} style={{ width: '2.5rem' }} />
               <Column field="httpMethod" header="Method" sortable body={httpMethodBodyTemplate} style={{ width: '6rem' }} />
               <Column field="route" header="Route" sortable style={{ minWidth: '14rem' }} />
               <Column field="statusCode" header="Status" sortable body={statusCodeBodyTemplate} style={{ width: '5.5rem' }} />
@@ -1879,7 +2213,7 @@ export default function MockManagementPage() {
                 />
               )}
               <Column field="isActive" header="Active" sortable body={statusBodyTemplate} style={{ width: '5.5rem' }} />
-              <Column body={actionBodyTemplate} exportable={false} frozen alignFrozen="right" style={{ width: '11rem' }} />
+              <Column body={actionBodyTemplate} exportable={false} frozen alignFrozen="right" style={{ width: '14rem' }} />
             </DataTable>
           </div>
         </div>
@@ -2180,6 +2514,62 @@ export default function MockManagementPage() {
           />
           <small>Paste an OpenAPI/Swagger JSON specification. A mock will be created for each path + method combination.</small>
         </div>
+      </Dialog>
+
+      {/* Import Collection Dialog */}
+      <Dialog
+        visible={importCollectionDialog}
+        style={{ width: 'min(800px, 95vw)' }}
+        header="Import Collection"
+        modal
+        className="p-fluid"
+        onHide={() => { setImportCollectionDialog(false); setImportCollectionJson(''); }}
+        breakpoints={{ '960px': '90vw', '641px': '95vw' }}
+        footer={
+          <>
+            <Button label="Cancel" icon="pi pi-times" outlined severity="secondary" onClick={() => { setImportCollectionDialog(false); setImportCollectionJson(''); }} />
+            <Button label="Import" icon="pi pi-upload" onClick={importCollectionFromJson} loading={importCollectionLoading} disabled={!importCollectionJson.trim()} />
+          </>
+        }
+      >
+        <div className="field mb-3">
+          <label className="font-semibold mb-2 block">Upload JSON File</label>
+          <FileUpload
+            mode="basic"
+            accept=".json,application/json"
+            maxFileSize={5000000}
+            auto
+            chooseLabel="Choose JSON File"
+            chooseOptions={{ icon: 'pi pi-file', className: 'p-button-outlined' }}
+            customUpload
+            uploadHandler={onCollectionFileUpload}
+          />
+          <small>Upload a .json file exported from Mocklab</small>
+        </div>
+
+        <div className="flex align-items-center gap-2 my-3">
+          <hr className="flex-1 border-top-1 surface-border" />
+          <span className="text-color-secondary text-sm font-semibold">OR</span>
+          <hr className="flex-1 border-top-1 surface-border" />
+        </div>
+
+        <div className="field">
+          <label htmlFor="importCollectionJson" className="font-semibold mb-2 block">Paste JSON</label>
+          <InputTextarea
+            id="importCollectionJson"
+            value={importCollectionJson}
+            onChange={(e) => setImportCollectionJson(e.target.value)}
+            rows={10}
+            autoResize
+            placeholder='{"collection": {"name": "...", "description": "..."}, "mocks": [...]}'
+            style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+          />
+          <small>Paste the exported collection JSON here</small>
+        </div>
+
+        {importCollectionJson.trim() && (
+          <Message severity="success" text="JSON loaded and ready for import." className="w-full mt-2" />
+        )}
       </Dialog>
     </div>
   );

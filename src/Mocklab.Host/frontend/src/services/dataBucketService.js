@@ -3,10 +3,7 @@ import apiConfig, { apiUrl, parseErrorResponse } from '../config/apiConfig';
 class DataBucketService {
   getAll(collectionId) {
     const path = apiConfig.dataBucketsPath(collectionId);
-    return fetch(apiUrl(path), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }).then(async (response) => {
+    return fetch(apiUrl(path)).then(async (response) => {
       if (!response.ok) {
         const msg = await parseErrorResponse(response);
         throw new Error(msg);
@@ -17,10 +14,7 @@ class DataBucketService {
 
   getOne(collectionId, bucketId) {
     const path = `${apiConfig.dataBucketsPath(collectionId)}/${bucketId}`;
-    return fetch(apiUrl(path), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }).then(async (response) => {
+    return fetch(apiUrl(path)).then(async (response) => {
       if (!response.ok) {
         const msg = await parseErrorResponse(response);
         throw new Error(msg);
@@ -71,7 +65,6 @@ class DataBucketService {
     const path = `${apiConfig.dataBucketsPath(collectionId)}/${bucketId}`;
     return fetch(apiUrl(path), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     }).then(async (response) => {
       if (!response.ok) {
         const msg = await parseErrorResponse(response);
@@ -86,10 +79,7 @@ class DataBucketService {
 
   exportBucket(collectionId, bucketId) {
     const path = `${apiConfig.dataBucketsPath(collectionId)}/${bucketId}/export`;
-    return fetch(apiUrl(path), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }).then(async (response) => {
+    return fetch(apiUrl(path)).then(async (response) => {
       if (!response.ok) {
         const msg = await parseErrorResponse(response);
         throw new Error(msg);
@@ -100,10 +90,7 @@ class DataBucketService {
 
   exportAll(collectionId) {
     const path = `${apiConfig.dataBucketsPath(collectionId)}/export`;
-    return fetch(apiUrl(path), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }).then(async (response) => {
+    return fetch(apiUrl(path)).then(async (response) => {
       if (!response.ok) {
         const msg = await parseErrorResponse(response);
         throw new Error(msg);

@@ -4,9 +4,13 @@ import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import { Dropdown } from 'primereact/dropdown';
+import { InputText } from 'primereact/inputtext';
+import { Calendar } from 'primereact/calendar';
 import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
+import { IconField } from 'primereact/iconfield';
+import { InputIcon } from 'primereact/inputicon';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { requestLogService } from '../services/requestLogService';
 
@@ -20,6 +24,12 @@ export default function RequestLogsPage() {
   // Filters
   const [methodFilter, setMethodFilter] = useState(null);
   const [matchedFilter, setMatchedFilter] = useState(null);
+  const [statusCodeFilter, setStatusCodeFilter] = useState(null);
+  const [dateRange, setDateRange] = useState(null);
+  const [routeFilter, setRouteFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
+  const [debouncedRoute, setDebouncedRoute] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Pagination
   const [lazyParams, setLazyParams] = useState({
@@ -29,9 +39,11 @@ export default function RequestLogsPage() {
   });
 
   const toast = useRef(null);
+  const routeDebounceRef = useRef(null);
+  const searchDebounceRef = useRef(null);
 
   const httpMethodOptions = [
-    { label: 'All Methods', value: null },
+    { label: 'All Methods', value: 'ALL' },
     { label: 'GET', value: 'GET' },
     { label: 'POST', value: 'POST' },
     { label: 'PUT', value: 'PUT' },
@@ -42,20 +54,63 @@ export default function RequestLogsPage() {
   ];
 
   const matchedOptions = [
-    { label: 'All', value: null },
-    { label: 'Matched', value: true },
-    { label: 'Unmatched', value: false }
+    { label: 'All', value: 'ALL' },
+    { label: 'Matched', value: 'matched' },
+    { label: 'Unmatched', value: 'unmatched' }
   ];
+
+  const statusCodeOptions = [
+    { label: 'All Status', value: 'ALL' },
+    { label: '200 - OK', value: 200 },
+    { label: '201 - Created', value: 201 },
+    { label: '204 - No Content', value: 204 },
+    { label: '400 - Bad Request', value: 400 },
+    { label: '401 - Unauthorized', value: 401 },
+    { label: '403 - Forbidden', value: 403 },
+    { label: '404 - Not Found', value: 404 },
+    { label: '500 - Internal Server Error', value: 500 },
+    { label: '503 - Service Unavailable', value: 503 }
+  ];
+
+  const onRouteFilterChange = (value) => {
+    setRouteFilter(value);
+    if (routeDebounceRef.current) clearTimeout(routeDebounceRef.current);
+    routeDebounceRef.current = setTimeout(() => {
+      setDebouncedRoute(value);
+      setLazyParams(prev => ({ ...prev, first: 0, page: 1 }));
+    }, 400);
+  };
+
+  const onSearchFilterChange = (value) => {
+    setSearchFilter(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setLazyParams(prev => ({ ...prev, first: 0, page: 1 }));
+    }, 400);
+  };
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await requestLogService.getLogs({
-        method: methodFilter,
-        isMatched: matchedFilter,
+      const params = {
         page: lazyParams.page,
         pageSize: lazyParams.rows,
-      });
+      };
+
+      if (methodFilter && methodFilter !== 'ALL') params.method = methodFilter;
+      if (matchedFilter && matchedFilter !== 'ALL') params.isMatched = matchedFilter === 'matched';
+      if (statusCodeFilter && statusCodeFilter !== 'ALL') params.statusCode = statusCodeFilter;
+      if (debouncedRoute) params.route = debouncedRoute;
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (dateRange && dateRange[0]) params.from = dateRange[0].toISOString();
+      if (dateRange && dateRange[1]) {
+        const endOfDay = new Date(dateRange[1]);
+        endOfDay.setHours(23, 59, 59, 999);
+        params.to = endOfDay.toISOString();
+      }
+
+      const result = await requestLogService.getLogs(params);
       setLogs(result.data);
       setTotalCount(result.totalCount);
     } catch (error) {
@@ -63,24 +118,31 @@ export default function RequestLogsPage() {
         severity: 'error',
         summary: 'Error',
         detail: 'Failed to load logs: ' + error.message,
-        life: 3000
+        life: 5000
       });
     } finally {
       setLoading(false);
     }
-  }, [methodFilter, matchedFilter, lazyParams]);
+  }, [methodFilter, matchedFilter, statusCodeFilter, dateRange, debouncedRoute, debouncedSearch, lazyParams]);
 
   useEffect(() => {
     loadLogs();
   }, [loadLogs]);
 
+  useEffect(() => {
+    return () => {
+      if (routeDebounceRef.current) clearTimeout(routeDebounceRef.current);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
   const onPage = (event) => {
-    setLazyParams({
-      ...lazyParams,
+    setLazyParams(prev => ({
+      ...prev,
       first: event.first,
       rows: event.rows,
       page: Math.floor(event.first / event.rows) + 1,
-    });
+    }));
   };
 
   const viewDetail = (log) => {
@@ -178,6 +240,10 @@ export default function RequestLogsPage() {
     );
   };
 
+  const resetPage = () => {
+    setLazyParams(prev => ({ ...prev, first: 0, page: 1 }));
+  };
+
   const leftToolbarTemplate = () => (
     <div className="flex flex-wrap gap-2 align-items-center">
       <Button
@@ -200,33 +266,61 @@ export default function RequestLogsPage() {
 
   const rightToolbarTemplate = () => (
     <div className="flex flex-wrap gap-2 align-items-center">
+      <IconField iconPosition="left">
+        <InputIcon className="pi pi-search" />
+        <InputText
+          value={routeFilter}
+          onChange={(e) => onRouteFilterChange(e.target.value)}
+          placeholder="Search route..."
+          style={{ width: '13rem' }}
+        />
+      </IconField>
       <Dropdown
         value={methodFilter}
         options={httpMethodOptions}
-        onChange={(e) => {
-          setMethodFilter(e.value);
-          setLazyParams({ ...lazyParams, first: 0, page: 1 });
-        }}
+        onChange={(e) => { setMethodFilter(e.value); resetPage(); }}
         placeholder="Method"
-        style={{ width: '9rem' }}
+        style={{ width: '10rem' }}
+      />
+      <Dropdown
+        value={statusCodeFilter}
+        options={statusCodeOptions}
+        onChange={(e) => { setStatusCodeFilter(e.value); resetPage(); }}
+        placeholder="Status Code"
+        style={{ width: '11rem' }}
       />
       <Dropdown
         value={matchedFilter}
         options={matchedOptions}
-        onChange={(e) => {
-          setMatchedFilter(e.value);
-          setLazyParams({ ...lazyParams, first: 0, page: 1 });
-        }}
+        onChange={(e) => { setMatchedFilter(e.value); resetPage(); }}
         placeholder="Match Status"
-        style={{ width: '9rem' }}
+        style={{ width: '10rem' }}
+      />
+      <Calendar
+        value={dateRange}
+        onChange={(e) => { setDateRange(e.value); resetPage(); }}
+        selectionMode="range"
+        placeholder="Date Range"
+        showIcon
+        showButtonBar
+        dateFormat="dd/mm/yy"
+        style={{ width: '14rem' }}
       />
     </div>
   );
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <h4 className="m-0">Request Logs</h4>
-      <span className="text-color-secondary text-sm">{totalCount} total logs</span>
+      <h4 className="m-0">Request Logs <span className="text-color-secondary text-sm font-normal ml-2">({totalCount})</span></h4>
+      <IconField iconPosition="left">
+        <InputIcon className="pi pi-search" />
+        <InputText
+          value={searchFilter}
+          onChange={(e) => onSearchFilterChange(e.target.value)}
+          placeholder="Search route, mock, body..."
+          style={{ width: '18rem' }}
+        />
+      </IconField>
     </div>
   );
 

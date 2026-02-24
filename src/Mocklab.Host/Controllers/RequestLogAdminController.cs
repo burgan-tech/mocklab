@@ -26,6 +26,8 @@ public class RequestLogAdminController(
         [FromQuery] bool? isMatched = null,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
+        [FromQuery] string? route = null,
+        [FromQuery] string? search = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -45,6 +47,15 @@ public class RequestLogAdminController(
 
         if (to.HasValue)
             query = query.Where(l => l.Timestamp <= to.Value);
+
+        if (!string.IsNullOrEmpty(route))
+            query = query.Where(l => l.Route.Contains(route));
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(l =>
+                l.Route.Contains(search) ||
+                (l.MatchedMockDescription != null && l.MatchedMockDescription.Contains(search)) ||
+                (l.RequestBody != null && l.RequestBody.Contains(search)));
 
         var totalCount = await query.CountAsync();
 

@@ -1,7 +1,7 @@
 import apiConfig from '../config/apiConfig';
 
 class RequestLogService {
-  async getLogs({ method, statusCode, isMatched, from, to, page, pageSize } = {}) {
+  async getLogs({ method, statusCode, isMatched, from, to, route, search, page, pageSize } = {}) {
     const params = new URLSearchParams();
 
     if (method) params.append('method', method);
@@ -9,6 +9,8 @@ class RequestLogService {
     if (isMatched !== undefined && isMatched !== null) params.append('isMatched', isMatched);
     if (from) params.append('from', from);
     if (to) params.append('to', to);
+    if (route) params.append('route', route);
+    if (search) params.append('search', search);
     if (page) params.append('page', page);
     if (pageSize) params.append('pageSize', pageSize);
 
@@ -17,23 +19,19 @@ class RequestLogService {
       ? `${apiConfig.adminLogsPath}?${queryString}`
       : apiConfig.adminLogsPath;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error('Failed to fetch request logs');
+      let detail = '';
+      try { detail = await response.text(); } catch {}
+      throw new Error(`Server error ${response.status}: ${detail || response.statusText}`);
     }
 
     return await response.json();
   }
 
   async getLog(id) {
-    const response = await fetch(`${apiConfig.adminLogsPath}/${id}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(`${apiConfig.adminLogsPath}/${id}`);
 
     if (!response.ok) {
       throw new Error('Failed to fetch request log');
@@ -43,10 +41,7 @@ class RequestLogService {
   }
 
   async getRecentCount(minutes = 5) {
-    const response = await fetch(`${apiConfig.adminLogsPath}/count?minutes=${minutes}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(`${apiConfig.adminLogsPath}/count?minutes=${minutes}`);
 
     if (!response.ok) {
       throw new Error('Failed to fetch log count');
@@ -58,7 +53,6 @@ class RequestLogService {
   async clearLogs() {
     const response = await fetch(`${apiConfig.adminLogsPath}/clear`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {

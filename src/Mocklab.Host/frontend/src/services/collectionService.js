@@ -3,10 +3,7 @@ import apiConfig, { apiUrl, parseErrorResponse } from '../config/apiConfig';
 class CollectionService {
   async getAllCollections(includeFolders = false) {
     const path = includeFolders ? `${apiConfig.adminCollectionsPath}?includeFolders=true` : apiConfig.adminCollectionsPath;
-    const response = await fetch(apiUrl(path), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(apiUrl(path));
 
     if (!response.ok) {
       const msg = await parseErrorResponse(response);
@@ -17,10 +14,7 @@ class CollectionService {
   }
 
   async getCollection(id) {
-    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${id}`), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${id}`));
 
     if (!response.ok) {
       const msg = await parseErrorResponse(response);
@@ -64,7 +58,6 @@ class CollectionService {
     const path = deleteMocks ? `${apiConfig.adminCollectionsPath}/${id}?deleteMocks=true` : `${apiConfig.adminCollectionsPath}/${id}`;
     const response = await fetch(apiUrl(path), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -81,7 +74,6 @@ class CollectionService {
   async exportCollection(id) {
     const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${id}/export`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {

@@ -2,10 +2,7 @@ import apiConfig, { apiUrl, parseErrorResponse } from '../config/apiConfig';
 
 class FolderService {
   async getFoldersByCollection(collectionId) {
-    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${collectionId}/folders`), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(apiUrl(`${apiConfig.adminCollectionsPath}/${collectionId}/folders`));
 
     if (!response.ok) {
       const msg = await parseErrorResponse(response);
@@ -49,7 +46,6 @@ class FolderService {
     const path = deleteMocks ? `${apiConfig.adminFoldersPath}/${id}?deleteMocks=true` : `${apiConfig.adminFoldersPath}/${id}`;
     const response = await fetch(apiUrl(path), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
