@@ -1,4 +1,4 @@
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// A named, structured data set attached to a collection for use in Scriban templates.

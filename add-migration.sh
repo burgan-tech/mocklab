@@ -15,13 +15,13 @@ fi
 echo "=== Generating SQLite migration: $MIGRATION_NAME ==="
 dotnet ef migrations add "$MIGRATION_NAME" \
   --project src/Mocklab.Migrations.Sqlite \
-  --startup-project src/Mocklab.App
+  --startup-project src/Mocklab.Host
 
 echo ""
 echo "=== Generating PostgreSQL migration: $MIGRATION_NAME ==="
 MOCKLAB_DB_PROVIDER=postgresql dotnet ef migrations add "$MIGRATION_NAME" \
   --project src/Mocklab.Migrations.PostgreSql \
-  --startup-project src/Mocklab.App
+  --startup-project src/Mocklab.Host
 
 echo ""
 echo "Done! Migrations generated for SQLite and PostgreSQL."

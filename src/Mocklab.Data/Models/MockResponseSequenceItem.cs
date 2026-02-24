@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// Represents a single step in a sequential mock response.

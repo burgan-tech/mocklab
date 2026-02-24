@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// Key-value pair for response headers in API contract (serializes as "key" / "value").

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Mocklab.App.Data;
+using Mocklab.Host.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
@@ -25,7 +25,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Mocklab.App.Models.DataBucket", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.DataBucket", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -61,7 +61,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("DataBuckets", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.KeyValueEntry", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.KeyValueEntry", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -92,7 +92,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("KeyValueEntries", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockCollection", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockCollection", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -124,7 +124,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("MockCollections", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockFolder", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockFolder", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -161,7 +161,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("MockFolders", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockResponse", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockResponse", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -230,7 +230,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("MockResponses", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockResponseRule", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockResponseRule", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -274,7 +274,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("MockResponseRules", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockResponseSequenceItem", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockResponseSequenceItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -310,7 +310,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("MockResponseSequenceItems", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.RequestLog", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.RequestLog", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -364,9 +364,9 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.ToTable("RequestLogs", "mocklab");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.DataBucket", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.DataBucket", b =>
                 {
-                    b.HasOne("Mocklab.App.Models.MockCollection", "Collection")
+                    b.HasOne("Mocklab.Host.Models.MockCollection", "Collection")
                         .WithMany("DataBuckets")
                         .HasForeignKey("CollectionId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -375,15 +375,15 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.Navigation("Collection");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockFolder", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockFolder", b =>
                 {
-                    b.HasOne("Mocklab.App.Models.MockCollection", "Collection")
+                    b.HasOne("Mocklab.Host.Models.MockCollection", "Collection")
                         .WithMany("Folders")
                         .HasForeignKey("CollectionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Mocklab.App.Models.MockFolder", "ParentFolder")
+                    b.HasOne("Mocklab.Host.Models.MockFolder", "ParentFolder")
                         .WithMany("Children")
                         .HasForeignKey("ParentFolderId")
                         .OnDelete(DeleteBehavior.Restrict);
@@ -393,22 +393,22 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.Navigation("ParentFolder");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockResponse", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockResponse", b =>
                 {
-                    b.HasOne("Mocklab.App.Models.MockCollection", null)
+                    b.HasOne("Mocklab.Host.Models.MockCollection", null)
                         .WithMany("MockResponses")
                         .HasForeignKey("CollectionId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Mocklab.App.Models.MockFolder", null)
+                    b.HasOne("Mocklab.Host.Models.MockFolder", null)
                         .WithMany("MockResponses")
                         .HasForeignKey("FolderId")
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockResponseRule", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockResponseRule", b =>
                 {
-                    b.HasOne("Mocklab.App.Models.MockResponse", "MockResponse")
+                    b.HasOne("Mocklab.Host.Models.MockResponse", "MockResponse")
                         .WithMany("Rules")
                         .HasForeignKey("MockResponseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -417,9 +417,9 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.Navigation("MockResponse");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockResponseSequenceItem", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockResponseSequenceItem", b =>
                 {
-                    b.HasOne("Mocklab.App.Models.MockResponse", "MockResponse")
+                    b.HasOne("Mocklab.Host.Models.MockResponse", "MockResponse")
                         .WithMany("SequenceItems")
                         .HasForeignKey("MockResponseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -428,7 +428,7 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.Navigation("MockResponse");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockCollection", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockCollection", b =>
                 {
                     b.Navigation("DataBuckets");
 
@@ -437,14 +437,14 @@ namespace Mocklab.Migrations.PostgreSql.Migrations
                     b.Navigation("MockResponses");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockFolder", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockFolder", b =>
                 {
                     b.Navigation("Children");
 
                     b.Navigation("MockResponses");
                 });
 
-            modelBuilder.Entity("Mocklab.App.Models.MockResponse", b =>
+            modelBuilder.Entity("Mocklab.Host.Models.MockResponse", b =>
                 {
                     b.Navigation("Rules");
 

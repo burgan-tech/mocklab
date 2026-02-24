@@ -32,7 +32,7 @@ mocklab/
     │   └── Migrations/
     ├── Mocklab.Migrations.PostgreSql/      # PostgreSQL-specific migrations
     │   └── Migrations/
-    └── Mocklab.App/                        # Main application
+    └── Mocklab.Host/                       # Main application
         ├── Program.cs
         ├── Controllers/
         │   ├── CatchAllController.cs           # Catch-all mock handler
@@ -73,7 +73,7 @@ mocklab/
 
 ```bash
 dotnet restore
-dotnet run --project src/Mocklab.App
+dotnet run --project src/Mocklab.Host
 ```
 
 The application starts on `http://localhost:5000` by default.
@@ -84,7 +84,7 @@ The SQLite database (`mocklab.db`) is created automatically on first run.
 For working on the admin UI with hot reload:
 
 ```bash
-cd src/Mocklab.App/frontend
+cd src/Mocklab.Host/frontend
 npm install
 npm run dev
 ```
@@ -96,7 +96,7 @@ The dev server starts at `http://localhost:3000` and proxies API calls to the ba
 The React app is embedded into the .NET DLL as static files:
 
 ```bash
-cd src/Mocklab.App/frontend
+cd src/Mocklab.Host/frontend
 npm run build
 ```
 
@@ -120,8 +120,8 @@ The `build` task runs `npm run build` for the frontend before compiling the .NET
 Delete the SQLite file and restart — it will be recreated with seed data (if `SeedSampleData` is enabled):
 
 ```bash
-rm src/Mocklab.App/mocklab.db
-dotnet run --project src/Mocklab.App
+rm src/Mocklab.Host/mocklab.db
+dotnet run --project src/Mocklab.Host
 ```
 
 ### Multi-Provider Migrations
@@ -147,12 +147,12 @@ Or run them individually:
 # SQLite
 dotnet ef migrations add <MigrationName> \
   --project src/Mocklab.Migrations.Sqlite \
-  --startup-project src/Mocklab.App
+  --startup-project src/Mocklab.Host
 
 # PostgreSQL
 MOCKLAB_DB_PROVIDER=postgresql dotnet ef migrations add <MigrationName> \
   --project src/Mocklab.Migrations.PostgreSql \
-  --startup-project src/Mocklab.App
+  --startup-project src/Mocklab.Host
 ```
 
 The `MOCKLAB_DB_PROVIDER` environment variable tells the design-time factory which provider to use. It defaults to `sqlite` when not set.

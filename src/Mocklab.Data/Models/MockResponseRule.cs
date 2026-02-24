@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// Defines a conditional response rule for a mock response.

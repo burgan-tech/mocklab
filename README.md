@@ -29,7 +29,7 @@ app.UseMocklab();
 ```bash
 git clone https://github.com/user/mocklab.git
 cd mocklab
-dotnet run --project src/Mocklab.App
+dotnet run --project src/Mocklab.Host
 ```
 
 Open `http://localhost:5000/_admin/` for the admin UI.
@@ -37,7 +37,7 @@ Open `http://localhost:5000/_admin/` for the admin UI.
 ### Integrate into Your Project
 
 ```bash
-dotnet add reference path/to/Mocklab.App.csproj
+dotnet add reference path/to/Mocklab.Host.csproj
 ```
 
 ```csharp
@@ -81,7 +81,7 @@ docker run -d --name mocklab -p 8080:5000 mocklab:latest
 
 | Project | Role |
 |---|---|
-| `Mocklab.App` | Main application — controllers, services, middleware, embedded UI |
+| `Mocklab.Host` | Main application — controllers, services, middleware, embedded UI |
 | `Mocklab.Data` | Shared data layer — DbContext, entity models |
 | `Mocklab.Migrations.Sqlite` | SQLite EF Core migrations (native types) |
 | `Mocklab.Migrations.PostgreSql` | PostgreSQL EF Core migrations (native types) |
@@ -93,7 +93,7 @@ Each database provider has its own migration assembly with correct column types,
 Releases are built and published automatically via GitHub Actions (`.github/workflows/build-and-publish.yml`):
 
 - **Trigger:** Push to a `release-v*` branch (e.g. `release-v1.0`) or run the workflow manually.
-- **Outputs:** A Docker image is published to GitHub Container Registry (`ghcr.io/<org>/mocklab`) and the **Mocklab.App** NuGet package is published to NuGet.org.
+- **Outputs:** A Docker image is published to GitHub Container Registry (`ghcr.io/<org>/mocklab`) and the **Mocklab.Host** NuGet package is published to NuGet.org.
 - **Version:** On `release-vX.Y` branches, the next unused patch version (e.g. `1.0.0`, `1.0.1`) is used. You can override the version when triggering the workflow manually.
 - **Required secrets:**
   - `NUGET_API_KEY` — for NuGet publish (create at [NuGet.org](https://www.nuget.org/account/apikeys)).

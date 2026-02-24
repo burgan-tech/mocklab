@@ -1,4 +1,4 @@
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// Represents a folder (area) within a collection for grouping mock responses

@@ -1,4 +1,4 @@
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// Represents a logged incoming request to the mock server

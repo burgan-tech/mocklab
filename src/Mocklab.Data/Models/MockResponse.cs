@@ -1,4 +1,4 @@
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 public class MockResponse
 {

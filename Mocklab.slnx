@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="src/Mocklab.App/Mocklab.App.csproj" />
+  <Project Path="src/Mocklab.Host/Mocklab.Host.csproj" />
+  <Project Path="src/Mocklab.Data/Mocklab.Data.csproj" />
+  <Project Path="src/Mocklab.Migrations.Sqlite/Mocklab.Migrations.Sqlite.csproj" />
+  <Project Path="src/Mocklab.Migrations.PostgreSql/Mocklab.Migrations.PostgreSql.csproj" />
 </Solution>

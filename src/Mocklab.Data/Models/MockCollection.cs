@@ -1,4 +1,4 @@
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// Represents a group/collection of related mock responses

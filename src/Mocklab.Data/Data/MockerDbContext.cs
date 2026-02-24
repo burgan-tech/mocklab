@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
-using Mocklab.App.Models;
+using Mocklab.Host.Models;
 
-namespace Mocklab.App.Data;
+namespace Mocklab.Host.Data;
 
 public class MocklabDbContext : DbContext
 {

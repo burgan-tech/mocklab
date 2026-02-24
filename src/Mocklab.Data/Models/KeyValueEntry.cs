@@ -1,4 +1,4 @@
-namespace Mocklab.App.Models;
+namespace Mocklab.Host.Models;
 
 /// <summary>
 /// Generic key-value storage for entities. Used for response headers per rule (OwnerType = "MockResponseRule");
