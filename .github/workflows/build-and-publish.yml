@@ -85,7 +85,7 @@ jobs:
             else
               # Fallback to version from csproj (no common.props in Mocklab)
               echo "Branch name doesn't match release-vX.Y pattern, using version from csproj"
-              VERSION=$(grep '<Version>' ./src/Mocklab.App/Mocklab.App.csproj | sed 's/.*<Version>\(.*\)<\/Version>.*/\1/' | head -n 1 | tr -d ' ')
+              VERSION=$(grep '<Version>' ./src/Mocklab.Host/Mocklab.Host.csproj | sed 's/.*<Version>\(.*\)<\/Version>.*/\1/' | head -n 1 | tr -d ' ')
 
               if [ -z "$VERSION" ]; then
                 echo "Error: Could not determine version"
@@ -153,7 +153,7 @@ jobs:
           OUTPUT_DIR="${{ github.workspace }}/packages"
           mkdir -p "$OUTPUT_DIR"
 
-          dotnet pack ./src/Mocklab.App/Mocklab.App.csproj \
+          dotnet pack ./src/Mocklab.Host/Mocklab.Host.csproj \
             --configuration Release \
             --no-build \
             --output "$OUTPUT_DIR" \
@@ -259,9 +259,9 @@ jobs:
           echo "\`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### NuGet" >> $GITHUB_STEP_SUMMARY
-          echo "- **Package**: Mocklab.App" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: Mocklab.Host" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "1. Pull image: \`docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "2. Install package: \`dotnet add package Mocklab.App --version ${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Install package: \`dotnet add package Mocklab.Host --version ${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
