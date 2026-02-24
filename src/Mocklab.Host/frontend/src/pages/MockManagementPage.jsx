@@ -2078,28 +2078,50 @@ export default function MockManagementPage() {
                 className="w-full border-none"
                 filter
                 filterPlaceholder="Search..."
-                nodeTemplate={(node) => (
-                  <div
-                    className="flex align-items-center gap-2"
-                    onDragOver={(e) => onTreeNodeDragOver(e, node.key)}
-                    onDragLeave={onTreeNodeDragLeave}
-                    onDrop={(e) => onTreeNodeDrop(e, node.data || {})}
-                    style={{
-                      padding: '0.15rem 0.25rem',
-                      borderRadius: '4px',
-                      ...(dragOverNodeKey === node.key ? { backgroundColor: 'var(--primary-100)', outline: '2px solid var(--primary-color)' } : {})
-                    }}
-                  >
-                    {node.data?.color ? (
-                      <span
-                        className="flex-shrink-0 border-circle border-1 border-400"
-                        style={{ width: '0.75rem', height: '0.75rem', backgroundColor: node.data.color }}
-                        title={node.data.color}
-                      />
-                    ) : null}
-                    <span>{node.label}</span>
-                  </div>
-                )}
+                nodeTemplate={(node) => {
+                  const nodeType = node.data?.type;
+                  const hasMenu = nodeType === 'collection' || nodeType === 'folder' || nodeType === 'collectionAll' || nodeType === 'collectionUncategorized';
+                  return (
+                    <div
+                      className="mocklab-tree-node flex align-items-center gap-2"
+                      onDragOver={(e) => onTreeNodeDragOver(e, node.key)}
+                      onDragLeave={onTreeNodeDragLeave}
+                      onDrop={(e) => onTreeNodeDrop(e, node.data || {})}
+                      style={{
+                        padding: '0.15rem 0.25rem',
+                        borderRadius: '4px',
+                        flex: 1,
+                        ...(dragOverNodeKey === node.key ? { backgroundColor: 'var(--primary-100)', outline: '2px solid var(--primary-color)' } : {})
+                      }}
+                    >
+                      {node.data?.color ? (
+                        <span
+                          className="flex-shrink-0 border-circle border-1 border-400"
+                          style={{ width: '0.75rem', height: '0.75rem', backgroundColor: node.data.color }}
+                          title={node.data.color}
+                        />
+                      ) : null}
+                      <span className="flex-1 white-space-nowrap overflow-hidden text-overflow-ellipsis">{node.label}</span>
+                      {hasMenu && (
+                        <button
+                          type="button"
+                          className="mocklab-tree-node-menu p-link flex align-items-center justify-content-center"
+                          style={{ width: '1.25rem', height: '1.25rem', borderRadius: '3px', flexShrink: 0 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setContextMenuNodeKey(node.key);
+                            setTimeout(() => {
+                              if (contextMenuRef.current) contextMenuRef.current.show(e);
+                            }, 0);
+                          }}
+                          title="Actions"
+                        >
+                          <i className="pi pi-ellipsis-h" style={{ fontSize: '0.75rem' }} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                }}
               />
               <ContextMenu model={contextMenuModel} ref={contextMenuRef} />
             </div>

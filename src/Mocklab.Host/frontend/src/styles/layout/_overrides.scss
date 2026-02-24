@@ -179,6 +179,29 @@
   min-width: 0;
 }
 
+/* Tree node hover menu button */
+.mocklab-tree-node {
+  position: relative;
+
+  .mocklab-tree-node-menu {
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: transparent;
+    border: none;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--primary-color);
+      background: var(--surface-100);
+    }
+  }
+
+  &:hover .mocklab-tree-node-menu {
+    opacity: 1;
+  }
+}
+
 @media screen and (max-width: 768px) {
   .mocklab-split-layout {
     flex-direction: column;
