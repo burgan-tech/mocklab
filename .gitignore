@@ -40,6 +40,7 @@ x64/
 x86/
 bld/
 [Bb]in/
+bin\\Debug/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
@@ -52,7 +53,7 @@ packages/
 package-lock.json
 
 # Frontend build output (embedded in DLL via dotnet build)
-src/Mocklab.App/wwwroot/_mocklab/
+src/Mocklab.Host/wwwroot/_mocklab/
 
 # Docker
 docker-compose.override.yml

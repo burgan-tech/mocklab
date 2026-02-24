@@ -7,13 +7,13 @@ Add Mocklab to any existing ASP.NET Core application — just like Swagger.
 ### 1. Add the project reference
 
 ```bash
-dotnet add reference path/to/Mocklab.App.csproj
+dotnet add reference path/to/Mocklab.Host.csproj
 ```
 
 ### 2. Configure services in `Program.cs`
 
 ```csharp
-using Mocklab.App.Extensions;
+using Mocklab.Host.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

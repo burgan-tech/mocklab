@@ -1,0 +1,312 @@
+.layout-topbar {
+  position: fixed;
+  height: 3rem;
+  z-index: 997;
+  left: 0;
+  top: 0;
+  width: 100%;
+  padding: 0 1rem;
+  background-color: var(--surface-card);
+  transition: left $transitionDuration;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--surface-border);
+
+  .layout-topbar-start {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .layout-topbar-logo {
+    display: flex;
+    align-items: center;
+    color: var(--surface-900);
+    cursor: pointer;
+    gap: 0.5rem;
+    padding-right: 1.25rem;
+    border-right: 1px solid var(--surface-border);
+    margin-right: 1rem;
+
+    > i {
+      color: var(--primary-color);
+      font-size: 1.125rem;
+    }
+
+    &:focus {
+      @include focused();
+    }
+  }
+
+  .layout-topbar-logo-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+
+  .layout-topbar-app-name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--surface-900);
+    letter-spacing: -0.02em;
+  }
+
+  .layout-topbar-app-subtitle {
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: var(--text-color-secondary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 0.0625rem;
+  }
+
+  .layout-topbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    flex: 1;
+
+    .layout-topbar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.625rem;
+      border-radius: $borderRadius;
+      color: var(--text-color-secondary);
+      cursor: pointer;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background-color $transitionDuration, color $transitionDuration;
+      text-decoration: none;
+
+      i {
+        font-size: 0.875rem;
+      }
+
+      &:hover {
+        background-color: var(--surface-hover);
+        color: var(--text-color);
+      }
+
+      &.active-route {
+        background-color: var(--primary-color);
+        color: var(--primary-color-text);
+
+        .p-badge {
+          background-color: rgba(255, 255, 255, 0.25);
+          color: var(--primary-color-text);
+        }
+      }
+
+      .p-badge {
+        font-size: 0.5625rem;
+        min-width: 1.125rem;
+        height: 1.125rem;
+        line-height: 1.125rem;
+      }
+    }
+  }
+
+  .layout-topbar-end {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    gap: 0.125rem;
+  }
+
+  .layout-topbar-button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    color: var(--text-color-secondary);
+    border-radius: $borderRadius;
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+    transition: background-color $transitionDuration, color $transitionDuration;
+    border: none;
+    background: transparent;
+    text-decoration: none;
+
+    &:hover {
+      color: var(--text-color);
+      background-color: var(--surface-hover);
+    }
+
+    &:focus {
+      @include focused();
+    }
+
+    i {
+      font-size: 1rem;
+    }
+  }
+
+  .layout-topbar-mobile-button {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-color-secondary);
+    border-radius: $borderRadius;
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+    transition: background-color $transitionDuration, color $transitionDuration;
+    border: none;
+    background: transparent;
+
+    &:hover {
+      color: var(--text-color);
+      background-color: var(--surface-hover);
+    }
+
+    i {
+      font-size: 1rem;
+    }
+  }
+}
+
+// Mobile menu dropdown
+.layout-mobile-mask {
+  display: none;
+}
+
+.layout-mobile-menu {
+  display: none;
+}
+
+@media (max-width: 991px) {
+  .layout-topbar {
+    padding: 0 0.75rem;
+  }
+
+  .layout-topbar .layout-topbar-logo {
+    border-right: none;
+    padding-right: 0;
+    margin-right: 0;
+  }
+
+  .layout-topbar .layout-topbar-logo-text .layout-topbar-app-subtitle {
+    display: none;
+  }
+
+  .layout-topbar .layout-topbar-nav {
+    display: none;
+  }
+
+  .layout-topbar .layout-topbar-end .layout-topbar-button {
+    display: none;
+  }
+
+  .layout-topbar .layout-topbar-end .layout-topbar-mobile-button {
+    display: inline-flex;
+  }
+
+  .layout-mobile-mask {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 998;
+    width: 100%;
+    height: 100%;
+    background-color: var(--maskbg);
+    animation: fadein $transitionDuration;
+  }
+
+  .layout-mobile-menu {
+    display: block;
+    position: fixed;
+    top: 3rem;
+    right: 0.5rem;
+    z-index: 999;
+    background-color: var(--surface-overlay);
+    border-radius: $borderRadius;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+    padding: 0.375rem;
+    min-width: 180px;
+    animation: scalein 0.12s ease-out;
+
+    .layout-mobile-menu-section {
+      padding: 0.125rem 0;
+    }
+
+    .layout-mobile-menu-label {
+      display: block;
+      font-size: 0.625rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-color-secondary);
+      padding: 0.375rem 0.5rem 0.25rem;
+      letter-spacing: 0.04em;
+    }
+
+    .layout-mobile-menu-divider {
+      height: 1px;
+      background-color: var(--surface-border);
+      margin: 0.125rem 0.375rem;
+    }
+
+    .layout-mobile-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.625rem;
+      border-radius: $borderRadius;
+      color: var(--text-color);
+      cursor: pointer;
+      font-size: 0.8125rem;
+      transition: background-color $transitionDuration;
+      text-decoration: none;
+
+      i {
+        font-size: 0.875rem;
+        color: var(--text-color-secondary);
+      }
+
+      .layout-mobile-menu-external {
+        margin-left: auto;
+        font-size: 0.6875rem;
+      }
+
+      .p-badge {
+        margin-left: auto;
+        font-size: 0.5625rem;
+        min-width: 1.125rem;
+        height: 1.125rem;
+        line-height: 1.125rem;
+      }
+
+      &:hover {
+        background-color: var(--surface-hover);
+      }
+
+      &.active-route {
+        background-color: var(--highlight-bg);
+        color: var(--primary-color);
+
+        i {
+          color: var(--primary-color);
+        }
+      }
+    }
+  }
+}
+
+@keyframes scalein {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

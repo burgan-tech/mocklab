@@ -1,0 +1,213 @@
+/* ===== Mocklab - small / minimal design ===== */
+
+/* Page Header */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.page-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: $borderRadius;
+  background: var(--primary-color);
+  color: var(--primary-color-text);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.page-header-text h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.page-header-text p {
+  margin: 0.125rem 0 0 0;
+  color: var(--text-color-secondary);
+  font-size: 0.8125rem;
+}
+
+.card {
+  overflow: hidden;
+}
+
+.card .p-toolbar {
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: $borderRadius;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.card .p-toolbar .p-toolbar-group-start,
+.card .p-toolbar .p-toolbar-group-end {
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.card .p-datatable .p-datatable-header {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0;
+}
+
+.card .p-datatable .p-datatable-thead > tr > th {
+  background: var(--surface-50, var(--surface-ground));
+  color: var(--text-color-secondary);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding: 0.5rem 0.75rem;
+}
+
+.card .p-datatable .p-datatable-tbody > tr > td {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.card .p-datatable .p-datatable-wrapper {
+  overflow-x: auto;
+}
+
+.p-dialog {
+  border-radius: $borderRadius;
+  overflow: hidden;
+}
+
+.p-dialog .p-dialog-header {
+  padding: 0.75rem 1.25rem 0.5rem 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.p-dialog .p-dialog-content {
+  padding: 0.75rem 1.25rem 1rem 1.25rem;
+}
+
+.p-dialog .p-dialog-footer {
+  padding: 0.5rem 1.25rem 0.75rem 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.field {
+  margin-bottom: 0.75rem;
+
+  > label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: var(--surface-700, var(--text-color));
+  }
+
+  > small {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--text-color-secondary);
+    font-size: 0.75rem;
+  }
+}
+
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.p-message.p-message-info {
+  border-radius: $borderRadius;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-ground);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-400, #ccc);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-500, #999);
+}
+
+.p-paginator {
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+/* Scrollbar - slim for minimal look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Collapsible sidebar layout */
+.mocklab-split-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.mocklab-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+
+  .card {
+    position: sticky;
+    top: 5rem;
+  }
+}
+
+.mocklab-main-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tree node hover menu button */
+.mocklab-tree-node {
+  position: relative;
+
+  .mocklab-tree-node-menu {
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: transparent;
+    border: none;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--primary-color);
+      background: var(--surface-100);
+    }
+  }
+
+  &:hover .mocklab-tree-node-menu {
+    opacity: 1;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .mocklab-split-layout {
+    flex-direction: column;
+  }
+
+  .mocklab-sidebar {
+    width: 100%;
+  }
+}
