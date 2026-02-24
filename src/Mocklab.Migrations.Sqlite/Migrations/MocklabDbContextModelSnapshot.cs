@@ -7,7 +7,7 @@ using Mocklab.App.Data;
 
 #nullable disable
 
-namespace Mocklab.App.Data.Migrations
+namespace Mocklab.Migrations.Sqlite.Migrations
 {
     [DbContext(typeof(MocklabDbContext))]
     partial class MocklabDbContextModelSnapshot : ModelSnapshot

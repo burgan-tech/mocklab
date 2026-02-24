@@ -37,6 +37,11 @@ public static class MocklabServiceExtensions
             opts.DatabaseProvider = options.DatabaseProvider;
         });
 
+        services.Configure<MocklabDbOptions>(opts =>
+        {
+            opts.SchemaName = options.SchemaName;
+        });
+
         // Register DbContext
         if (options.UseHostDatabase)
         {
@@ -51,11 +56,13 @@ public static class MocklabServiceExtensions
                 switch (options.DatabaseProvider.ToLowerInvariant())
                 {
                     case "sqlite":
-                        dbOptions.UseSqlite(connectionString);
+                        dbOptions.UseSqlite(connectionString,
+                            x => x.MigrationsAssembly("Mocklab.Migrations.Sqlite"));
                         break;
                     case "postgresql":
                     case "postgres":
-                        dbOptions.UseNpgsql(connectionString);
+                        dbOptions.UseNpgsql(connectionString,
+                            x => x.MigrationsAssembly("Mocklab.Migrations.PostgreSql"));
                         break;
                     case "sqlserver":
                     default:
@@ -69,7 +76,8 @@ public static class MocklabServiceExtensions
             // Standalone mode - use SQLite with own connection string
             services.AddDbContext<MocklabDbContext>(dbOptions =>
             {
-                dbOptions.UseSqlite(options.ConnectionString);
+                dbOptions.UseSqlite(options.ConnectionString,
+                    x => x.MigrationsAssembly("Mocklab.Migrations.Sqlite"));
             });
         }
 

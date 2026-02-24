@@ -8,17 +8,80 @@ using Mocklab.App.Data;
 
 #nullable disable
 
-namespace Mocklab.App.Data.Migrations
+namespace Mocklab.Migrations.Sqlite.Migrations
 {
     [DbContext(typeof(MocklabDbContext))]
-    [Migration("20260220221414_AddMockFoldersAndFolderIdToMockResponse")]
-    partial class AddMockFoldersAndFolderIdToMockResponse
+    [Migration("20260223210830_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
+
+            modelBuilder.Entity("Mocklab.App.Models.DataBucket", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CollectionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Data")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollectionId", "Name")
+                        .HasDatabaseName("IX_DataBuckets_CollectionId_Name");
+
+                    b.ToTable("DataBuckets", "mocklab");
+                });
+
+            modelBuilder.Entity("Mocklab.App.Models.KeyValueEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerType", "OwnerId")
+                        .HasDatabaseName("IX_KeyValueEntries_OwnerType_OwnerId");
+
+                    b.ToTable("KeyValueEntries", "mocklab");
+                });
 
             modelBuilder.Entity("Mocklab.App.Models.MockCollection", b =>
                 {
@@ -58,6 +121,9 @@ namespace Mocklab.App.Data.Migrations
 
                     b.Property<int>("CollectionId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -277,6 +343,17 @@ namespace Mocklab.App.Data.Migrations
                     b.ToTable("RequestLogs", "mocklab");
                 });
 
+            modelBuilder.Entity("Mocklab.App.Models.DataBucket", b =>
+                {
+                    b.HasOne("Mocklab.App.Models.MockCollection", "Collection")
+                        .WithMany("DataBuckets")
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Collection");
+                });
+
             modelBuilder.Entity("Mocklab.App.Models.MockFolder", b =>
                 {
                     b.HasOne("Mocklab.App.Models.MockCollection", "Collection")
@@ -332,6 +409,8 @@ namespace Mocklab.App.Data.Migrations
 
             modelBuilder.Entity("Mocklab.App.Models.MockCollection", b =>
                 {
+                    b.Navigation("DataBuckets");
+
                     b.Navigation("Folders");
 
                     b.Navigation("MockResponses");

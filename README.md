@@ -77,6 +77,17 @@ docker run -d --name mocklab -p 8080:5000 mocklab:latest
 | Database | SQLite, PostgreSQL, SQL Server |
 | Frontend | React 19, PrimeReact 10, Vite 7 |
 
+### Project Layout
+
+| Project | Role |
+|---|---|
+| `Mocklab.App` | Main application — controllers, services, middleware, embedded UI |
+| `Mocklab.Data` | Shared data layer — DbContext, entity models |
+| `Mocklab.Migrations.Sqlite` | SQLite EF Core migrations (native types) |
+| `Mocklab.Migrations.PostgreSql` | PostgreSQL EF Core migrations (native types) |
+
+Each database provider has its own migration assembly with correct column types, so migrations generated for SQLite won't break PostgreSQL (and vice versa). See [Getting Started — Multi-Provider Migrations](docs/getting-started.md#multi-provider-migrations) for details.
+
 ## Publishing (CI/CD)
 
 Releases are built and published automatically via GitHub Actions (`.github/workflows/build-and-publish.yml`):

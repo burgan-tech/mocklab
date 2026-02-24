@@ -28,6 +28,12 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Mocklab.Data\Mocklab.Data.csproj" />
+    <ProjectReference Include="..\Mocklab.Migrations.Sqlite\Mocklab.Migrations.Sqlite.csproj" />
+    <ProjectReference Include="..\Mocklab.Migrations.PostgreSql\Mocklab.Migrations.PostgreSql.csproj" />
+  </ItemGroup>
+
   <!-- Embed frontend static files as resources -->
   <ItemGroup>
     <EmbeddedResource Include="wwwroot\_mocklab\**\*" />
