@@ -57,7 +57,7 @@ public class MockImportService(
 
         var uri = new Uri(parsed.Url);
 
-        var method = (parsed.Method ?? "GET").Trim().ToUpperInvariant();
+        var method = (parsed.Method ?? HttpConstants.MethodGet).Trim().ToUpperInvariant();
         var route = (uri.AbsolutePath ?? "/").Trim();
         var exists = await _dbContext.MockResponses.AnyAsync(m =>
             m.CollectionId == null &&

@@ -9,6 +9,12 @@ public static class HttpConstants
     public const int DefaultStatusCode = 200;
     public const string DefaultResponseBody = "{}";
 
+    public const string MethodGet = "GET";
+    public const string MethodPost = "POST";
+    public const string MethodPut = "PUT";
+    public const string MethodDelete = "DELETE";
+    public const string MethodPatch = "PATCH";
+
     /// <summary>
     /// Standard HTTP methods recognised when parsing OpenAPI specifications.
     /// </summary>
