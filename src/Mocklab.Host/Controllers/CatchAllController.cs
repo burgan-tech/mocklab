@@ -12,6 +12,7 @@ using Mocklab.Host.Services;
 namespace Mocklab.Host.Controllers;
 
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class CatchAllController(
     ILogger<CatchAllController> logger,
     MocklabDbContext dbContext,

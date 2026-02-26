@@ -1,5 +1,4 @@
 using Mocklab.Host.Extensions;
-using Mocklab.Host.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,22 +28,16 @@ builder.Services.AddCors(options =>
         });
 });
 
-// Add OpenAPI/Swagger
 builder.Services.AddOpenApi();
-
-// Add HttpClient for cURL import feature
-builder.Services.AddHttpClient();
-
-// Register business services
-builder.Services.AddScoped<IMockImportService, MockImportService>();
-builder.Services.AddSingleton<ITemplateProcessor, ScribanTemplateProcessor>();
-builder.Services.AddSingleton<IRuleEvaluator, RuleEvaluator>();
-builder.Services.AddSingleton<ISequenceStateManager, SequenceStateManager>();
 
 var app = builder.Build();
 
-// Enable OpenAPI endpoint
 app.MapOpenApi();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/openapi/v1.json", "Mocklab API");
+    c.RoutePrefix = "swagger";
+});
 
 // Only use HTTPS redirection in production
 if (!app.Environment.IsDevelopment())

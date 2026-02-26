@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -20,8 +20,37 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!-- Standalone mode (dotnet run / Docker): build as Exe -->
+  <PropertyGroup Condition="'$(IsPackaging)' != 'true'">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <!-- Library mode (dotnet pack): build as Library, exclude Program.cs -->
+  <PropertyGroup Condition="'$(IsPackaging)' == 'true'">
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackaging)' == 'true'">
+    <Compile Remove="Program.cs" />
+  </ItemGroup>
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" PrivateAssets="all" />
     <PackageReference Include="Scriban" Version="5.12.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -30,12 +59,17 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.2" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.4" PrivateAssets="all" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\Mocklab.Data\Mocklab.Data.csproj" />
-    <ProjectReference Include="..\Mocklab.Migrations.Sqlite\Mocklab.Migrations.Sqlite.csproj" />
-    <ProjectReference Include="..\Mocklab.Migrations.PostgreSql\Mocklab.Migrations.PostgreSql.csproj" />
+    <ProjectReference Include="..\Mocklab.Data\Mocklab.Data.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Mocklab.Migrations.Sqlite\Mocklab.Migrations.Sqlite.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Mocklab.Migrations.PostgreSql\Mocklab.Migrations.PostgreSql.csproj" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- Embed frontend static files as resources -->
@@ -43,12 +77,17 @@
     <EmbeddedResource Include="wwwroot\_mocklab\**\*" />
   </ItemGroup>
 
+  <!-- Include ProjectReference DLLs inside the NuGet package -->
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference'" />
+    </ItemGroup>
+  </Target>
+
   <!-- Build frontend before compilation (optional, can be done manually) -->
   <Target Name="BuildFrontend" BeforeTargets="PreBuildEvent" Condition="Exists('frontend/package.json')">
     <Message Text="Building frontend for embedded resources..." Importance="high" />
-    <Exec Command="cd frontend &amp;&amp; npm install &amp;&amp; npm run build" 
-          ContinueOnError="true" 
-          IgnoreExitCode="true" />
+    <Exec Command="cd frontend &amp;&amp; npm install &amp;&amp; npm run build" ContinueOnError="true" IgnoreExitCode="true" />
   </Target>
 
 </Project>

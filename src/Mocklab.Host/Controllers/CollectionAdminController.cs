@@ -12,6 +12,7 @@ namespace Mocklab.Host.Controllers;
 /// Admin controller for managing mock collections
 /// </summary>
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 [Route("_admin/collections")]
 public class CollectionAdminController(
     MocklabDbContext dbContext,
