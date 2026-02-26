@@ -7,6 +7,8 @@
     <RootNamespace>Mocklab.Host</RootNamespace>
     <AssemblyName>Mocklab.Host</AssemblyName>
     
+    <IsPackable>true</IsPackable>
+    
     <!-- NuGet Package Metadata -->
     <PackageId>Mocklab.Host</PackageId>
     <Version>1.0.0</Version>
