@@ -10,6 +10,7 @@ namespace Mocklab.Host.Controllers;
 /// Admin controller for managing mock folders (update and delete; create is under collections)
 /// </summary>
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 [Route("_admin/folders")]
 public class FolderAdminController(
     MocklabDbContext dbContext,

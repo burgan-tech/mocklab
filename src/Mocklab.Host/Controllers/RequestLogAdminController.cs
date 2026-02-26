@@ -8,6 +8,7 @@ namespace Mocklab.Host.Controllers;
 /// Admin controller for managing request logs
 /// </summary>
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 [Route("_admin/logs")]
 public class RequestLogAdminController(
     MocklabDbContext dbContext,
