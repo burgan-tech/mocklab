@@ -8,6 +8,7 @@ using Mocklab.Host.Services;
 namespace Mocklab.Host.Controllers;
 
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 [Route("_admin/mocks")]
 public class MockAdminController(
     MocklabDbContext dbContext,

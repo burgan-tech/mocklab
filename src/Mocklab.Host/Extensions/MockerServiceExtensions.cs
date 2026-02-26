@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Mocklab.Host.Data;
+using Mocklab.Host.Services;
 
 namespace Mocklab.Host.Extensions;
 
@@ -81,7 +82,14 @@ public static class MocklabServiceExtensions
             });
         }
 
-        // Register controllers from this assembly
+        // Register business services
+        services.AddHttpClient();
+        services.AddScoped<IMockImportService, MockImportService>();
+        services.AddSingleton<ITemplateProcessor, ScribanTemplateProcessor>();
+        services.AddSingleton<IRuleEvaluator, RuleEvaluator>();
+        services.AddSingleton<ISequenceStateManager, SequenceStateManager>();
+
+        // Register Mocklab controllers explicitly (avoids full assembly scanning)
         services.AddControllers(mvcOptions =>
             {
                 if (!string.IsNullOrEmpty(options.RoutePrefix))
@@ -89,7 +97,10 @@ public static class MocklabServiceExtensions
                     mvcOptions.Conventions.Add(new MocklabRoutePrefixConvention(options.RoutePrefix));
                 }
             })
-            .AddApplicationPart(typeof(MocklabServiceExtensions).Assembly);
+            .ConfigureApplicationPartManager(manager =>
+            {
+                manager.FeatureProviders.Add(new MocklabControllerFeatureProvider());
+            });
 
         return services;
     }

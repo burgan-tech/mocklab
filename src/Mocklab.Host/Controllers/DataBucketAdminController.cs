@@ -10,6 +10,7 @@ namespace Mocklab.Host.Controllers;
 /// Admin API for collection-level data buckets (used in Scriban templates).
 /// </summary>
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 [Route("_admin/collections/{collectionId:int}/data-buckets")]
 public class DataBucketAdminController(MocklabDbContext dbContext, ILogger<DataBucketAdminController> logger) : ControllerBase
 {

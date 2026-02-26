@@ -155,8 +155,8 @@ jobs:
 
           dotnet pack ./src/Mocklab.Host/Mocklab.Host.csproj \
             --configuration Release \
-            --no-build \
             --output "$OUTPUT_DIR" \
+            -p:IsPackaging=true \
             -p:Version=$VERSION \
             -p:IncludeSymbols=true \
             -p:SymbolPackageFormat=snupkg \
