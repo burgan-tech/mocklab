@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Mocklab.Host.Constants;
 using Mocklab.Host.Data;
 using Mocklab.Host.Models;
 using Mocklab.Host.Services;
@@ -405,7 +406,7 @@ public class CollectionAdminController(
 
             foreach (var mockData in mocksData.EnumerateArray())
             {
-                var httpMethod = (mockData.GetProperty("httpMethod").GetString() ?? "GET").Trim().ToUpperInvariant();
+                var httpMethod = (mockData.GetProperty("httpMethod").GetString() ?? HttpConstants.MethodGet).Trim().ToUpperInvariant();
                 var route = (mockData.GetProperty("route").GetString() ?? "/").Trim();
                 if (!seenMethodRoute.Add((httpMethod, route)))
                     continue;

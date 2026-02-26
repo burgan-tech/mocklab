@@ -1,3 +1,5 @@
+using Mocklab.Host.Constants;
+
 namespace Mocklab.Host.Services;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace Mocklab.Host.Services;
 /// </summary>
 public class CurlParseResult
 {
-    public string Method { get; set; } = "GET";
+    public string Method { get; set; } = HttpConstants.MethodGet;
     public string Url { get; set; } = string.Empty;
     public Dictionary<string, string> Headers { get; set; } = new();
     public string? Body { get; set; }
@@ -113,9 +115,9 @@ public static class CurlParser
         }
 
         // If body exists but method is still GET, switch to POST
-        if (result.Body != null && result.Method == "GET")
+        if (result.Body != null && result.Method == HttpConstants.MethodGet)
         {
-            result.Method = "POST";
+            result.Method = HttpConstants.MethodPost;
         }
 
         if (string.IsNullOrEmpty(result.Url))

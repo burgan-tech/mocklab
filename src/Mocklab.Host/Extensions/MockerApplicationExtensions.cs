@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Mocklab.Host.Constants;
 using Mocklab.Host.Data;
 using Mocklab.Host.Models;
 
@@ -117,7 +118,7 @@ public static class MocklabApplicationExtensions
         {
             new MockResponse
             {
-                HttpMethod = "GET",
+                HttpMethod = HttpConstants.MethodGet,
                 Route = "/api/users",
                 StatusCode = 200,
                 ResponseBody = @"{""users"": [{""id"": 1, ""name"": ""John Doe""}, {""id"": 2, ""name"": ""Jane Smith""}]}",
@@ -128,7 +129,7 @@ public static class MocklabApplicationExtensions
             },
             new MockResponse
             {
-                HttpMethod = "GET",
+                HttpMethod = HttpConstants.MethodGet,
                 Route = "/api/users/{id}",
                 StatusCode = 200,
                 ResponseBody = @"{""id"": 1, ""name"": ""John Doe"", ""email"": ""john@example.com""}",
@@ -139,7 +140,7 @@ public static class MocklabApplicationExtensions
             },
             new MockResponse
             {
-                HttpMethod = "POST",
+                HttpMethod = HttpConstants.MethodPost,
                 Route = "/api/users",
                 StatusCode = 201,
                 ResponseBody = @"{""id"": 3, ""name"": ""New User"", ""message"": ""User created successfully""}",
@@ -150,7 +151,7 @@ public static class MocklabApplicationExtensions
             },
             new MockResponse
             {
-                HttpMethod = "GET",
+                HttpMethod = HttpConstants.MethodGet,
                 Route = "/api/products",
                 QueryString = "?category=electronics",
                 StatusCode = 200,

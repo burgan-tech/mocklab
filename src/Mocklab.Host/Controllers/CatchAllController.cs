@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Mocklab.Host.Constants;
 using Mocklab.Host.Data;
 using Mocklab.Host.Extensions;
 using Mocklab.Host.Models;
@@ -60,7 +61,7 @@ public class CatchAllController(
 
         // Read request body (if exists)
         string? requestBody = null;
-        if (Request.ContentLength > 0 && (requestMethod == "POST" || requestMethod == "PUT" || requestMethod == "PATCH"))
+        if (Request.ContentLength > 0 && (requestMethod == HttpConstants.MethodPost || requestMethod == HttpConstants.MethodPut || requestMethod == HttpConstants.MethodPatch))
         {
             using var reader = new StreamReader(Request.Body);
             requestBody = await reader.ReadToEndAsync();
