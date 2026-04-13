@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Mocklab.Host.Data;
@@ -13,18 +14,29 @@ public static class MocklabServiceExtensions
 {
     /// <summary>
     /// Adds Mocklab API services to the dependency injection container.
+    /// Reads options from the "Mocklab" section of <paramref name="configuration"/>.
+    /// An optional <paramref name="configure"/> action can override individual values after binding.
     /// </summary>
     /// <param name="services">The service collection</param>
-    /// <param name="configure">Optional configuration action</param>
+    /// <param name="configuration">Application configuration (used to bind the "Mocklab" section)</param>
+    /// <param name="configure">Optional action to override individual option values after config binding</param>
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddMocklab(
         this IServiceCollection services,
+        IConfiguration configuration,
         Action<MocklabOptions>? configure = null)
     {
-        // Register and configure options
+        // Bind options from "Mocklab" config section, then apply any caller overrides
         var options = new MocklabOptions();
+        configuration.GetSection("Mocklab").Bind(options);
+
+        // Fallback: if ConnectionString not set in "Mocklab" section, try ConnectionStrings
+        if (string.IsNullOrEmpty(options.ConnectionString))
+            options.ConnectionString = configuration.GetConnectionString("DefaultConnection") ?? "Data Source=mocklab.db";
+
         configure?.Invoke(options);
-        
+
+        // Register options so the rest of the app can resolve IOptions<MocklabOptions>
         services.Configure<MocklabOptions>(opts =>
         {
             opts.UseHostDatabase = options.UseHostDatabase;
@@ -36,6 +48,7 @@ public static class MocklabServiceExtensions
             opts.AdminRoutePrefix = options.AdminRoutePrefix;
             opts.EnableUI = options.EnableUI;
             opts.DatabaseProvider = options.DatabaseProvider;
+            opts.SeedDirectory = options.SeedDirectory;
         });
 
         services.Configure<MocklabDbOptions>(opts =>
@@ -85,6 +98,7 @@ public static class MocklabServiceExtensions
         // Register business services
         services.AddHttpClient();
         services.AddScoped<IMockImportService, MockImportService>();
+        services.AddScoped<IJsonSeedImporter, JsonSeedImporter>();
         services.AddSingleton<ITemplateProcessor, ScribanTemplateProcessor>();
         services.AddSingleton<IRuleEvaluator, RuleEvaluator>();
         services.AddSingleton<ISequenceStateManager, SequenceStateManager>();
