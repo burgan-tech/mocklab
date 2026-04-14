@@ -40,9 +40,12 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
         var requestObj = new ScriptObject();
         requestObj.Add("method", request.Method);
         requestObj.Add("path", request.Path.Value ?? string.Empty);
-        requestObj.Add("body", bodyForTemplate ?? string.Empty);
 
         var requestJson = JsonToScribanHelper.FromJson(bodyForTemplate);
+        // body: parsed JSON object when valid JSON (enables request.body.accountName navigation),
+        // falls back to raw string when body is not valid JSON
+        requestObj.Add("body", requestJson ?? (object)(bodyForTemplate ?? string.Empty));
+        requestObj.Add("body_raw", bodyForTemplate ?? string.Empty);
         requestObj.Add("json", requestJson);
 
         var queryObj = new ScriptObject();
@@ -82,6 +85,69 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
         helpersObj.Import("alphanum", (Func<object?, string>)(o => helpersInstance.alphanum(o is int i ? i : 12)));
         helpersObj.Import("username", (Func<string>)(() => helpersInstance.username()));
         helpersObj.Import("email", (Func<object?, string>)(d => helpersInstance.email(d?.ToString())));
+
+        // All ScribanTemplateHelpers also available under helpers.*
+        helpersObj.Import("random_int", (Func<int>)ScribanTemplateHelpers.RandomInt);
+        helpersObj.Import("random_float", (Func<double>)ScribanTemplateHelpers.RandomFloat);
+        helpersObj.Import("random_name", (Func<string>)ScribanTemplateHelpers.RandomName);
+        helpersObj.Import("random_first_name", (Func<string>)ScribanTemplateHelpers.RandomFirstName);
+        helpersObj.Import("random_last_name", (Func<string>)ScribanTemplateHelpers.RandomLastName);
+        helpersObj.Import("random_email", (Func<string>)ScribanTemplateHelpers.RandomEmail);
+        helpersObj.Import("random_phone", (Func<string>)ScribanTemplateHelpers.RandomPhone);
+        helpersObj.Import("random_alpha_numeric", (Func<int, string>)ScribanTemplateHelpers.RandomAlphaNumeric);
+        helpersObj.Import("random_string", (Func<int, string>)ScribanTemplateHelpers.RandomStringLengthOnly);
+        helpersObj.Import("random_bool", (Func<bool>)ScribanTemplateHelpers.RandomBool);
+        helpersObj.Import("upper", (Func<string?, string>)ScribanTemplateHelpers.Upper);
+        helpersObj.Import("lower", (Func<string?, string>)ScribanTemplateHelpers.Lower);
+        helpersObj.Import("random_number_string", (Func<int, string>)ScribanTemplateHelpers.RandomNumberString);
+        helpersObj.Import("random_company_name", (Func<string>)ScribanTemplateHelpers.RandomCompanyName);
+        helpersObj.Import("random_city", (Func<string>)ScribanTemplateHelpers.RandomCity);
+        helpersObj.Import("random_country", (Func<string>)ScribanTemplateHelpers.RandomCountry);
+        helpersObj.Import("random_currency_code", (Func<string>)ScribanTemplateHelpers.RandomCurrencyCode);
+        helpersObj.Import("random_product_name", (Func<string>)ScribanTemplateHelpers.RandomProductName);
+        helpersObj.Import("random_job_title", (Func<string>)ScribanTemplateHelpers.RandomJobTitle);
+        helpersObj.Import("random_address", (Func<string>)ScribanTemplateHelpers.RandomAddress);
+        helpersObj.Import("random_iban", (Func<string>)ScribanTemplateHelpers.RandomIban);
+        helpersObj.Import("random_username", (Func<string>)ScribanTemplateHelpers.RandomUsername);
+        helpersObj.Import("random_password", (Func<string>)ScribanTemplateHelpers.RandomPassword);
+        helpersObj.Import("random_age", (Func<int>)ScribanTemplateHelpers.RandomAge);
+        helpersObj.Import("random_birthdate", (Func<string>)ScribanTemplateHelpers.RandomBirthdate);
+        helpersObj.Import("random_zip_code", (Func<string>)ScribanTemplateHelpers.RandomZipCode);
+        helpersObj.Import("random_latitude", (Func<double>)ScribanTemplateHelpers.RandomLatitude);
+        helpersObj.Import("random_longitude", (Func<double>)ScribanTemplateHelpers.RandomLongitude);
+        helpersObj.Import("random_account_number", (Func<string>)ScribanTemplateHelpers.RandomAccountNumber);
+        helpersObj.Import("random_swift_code", (Func<string>)ScribanTemplateHelpers.RandomSwiftCode);
+        helpersObj.Import("random_credit_card_number", (Func<string>)ScribanTemplateHelpers.RandomCreditCardNumber);
+        helpersObj.Import("random_price", (Func<string>)ScribanTemplateHelpers.RandomPrice);
+        helpersObj.Import("random_stock_symbol", (Func<string>)ScribanTemplateHelpers.RandomStockSymbol);
+        helpersObj.Import("random_transaction_type", (Func<string>)ScribanTemplateHelpers.RandomTransactionType);
+        helpersObj.Import("random_ip", (Func<string>)ScribanTemplateHelpers.RandomIp);
+        helpersObj.Import("random_mac_address", (Func<string>)ScribanTemplateHelpers.RandomMacAddress);
+        helpersObj.Import("random_url", (Func<string>)ScribanTemplateHelpers.RandomUrl);
+        helpersObj.Import("random_status", (Func<string>)ScribanTemplateHelpers.RandomStatus);
+        helpersObj.Import("random_http_status_code", (Func<int>)ScribanTemplateHelpers.RandomHttpStatusCode);
+        helpersObj.Import("random_color", (Func<string>)ScribanTemplateHelpers.RandomColor);
+        helpersObj.Import("random_hex_color", (Func<string>)ScribanTemplateHelpers.RandomHexColor);
+        helpersObj.Import("random_department", (Func<string>)ScribanTemplateHelpers.RandomDepartment);
+        helpersObj.Import("random_category", (Func<string>)ScribanTemplateHelpers.RandomCategory);
+        helpersObj.Import("random_role", (Func<string>)ScribanTemplateHelpers.RandomRole);
+        helpersObj.Import("random_priority", (Func<string>)ScribanTemplateHelpers.RandomPriority);
+        helpersObj.Import("random_ticket_status", (Func<string>)ScribanTemplateHelpers.RandomTicketStatus);
+        helpersObj.Import("random_order_status", (Func<string>)ScribanTemplateHelpers.RandomOrderStatus);
+        helpersObj.Import("random_language_code", (Func<string>)ScribanTemplateHelpers.RandomLanguageCode);
+        helpersObj.Import("random_continent", (Func<string>)ScribanTemplateHelpers.RandomContinent);
+        helpersObj.Import("random_timezone", (Func<string>)ScribanTemplateHelpers.RandomTimezone);
+        helpersObj.Import("random_file_extension", (Func<string>)ScribanTemplateHelpers.RandomFileExtension);
+        helpersObj.Import("random_mime_type", (Func<string>)ScribanTemplateHelpers.RandomMimeType);
+        helpersObj.Import("add",      (Func<double, double, double>)ScribanTemplateHelpers.Add);
+        helpersObj.Import("subtract", (Func<double, double, double>)ScribanTemplateHelpers.Subtract);
+        helpersObj.Import("multiply", (Func<double, double, double>)ScribanTemplateHelpers.Multiply);
+        helpersObj.Import("divide",   (Func<double, double, double>)ScribanTemplateHelpers.Divide);
+        helpersObj.Import("date_time_add",     (Func<DateTime, double, string, string>)ScribanTemplateHelpers.DateTimeAdd);
+        helpersObj.Import("date_time_add_fmt", (Func<DateTime, double, string, object?, string>)((dt, amt, unit, fmt) => ScribanTemplateHelpers.DateTimeAddFmt(dt, amt, unit, fmt?.ToString())));
+        helpersObj.Import("date_format",       (Func<DateTime, object?, string>)((dt, fmt) => ScribanTemplateHelpers.DateFormat(dt, fmt?.ToString())));
+        helpersObj.Import("faker", (Func<string, object[], object>)ScribanTemplateHelpers.Faker);
+
         scriptObject.Add("helpers", helpersObj);
 
         // Built-in helper functions (explicit register for static methods and overloads)
@@ -100,8 +166,80 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
         scriptObject.Import("random_string", (Func<int, string, string>)ScribanTemplateHelpers.RandomStringWithChars);
         scriptObject.Import("timestamp", (Func<long>)ScribanTemplateHelpers.Timestamp);
         scriptObject.Import("iso_timestamp", (Func<string>)ScribanTemplateHelpers.IsoTimestamp);
-        scriptObject.Import("now", (Func<DateTime>)ScribanTemplateHelpers.Now);
+        // now() → current UTC DateTime (pass to date_time_add / date_time_add_fmt)
+        // now_fmt('yyyy-MM-dd') → formatted string shorthand
+        scriptObject.Import("now",     (Func<DateTime>)ScribanTemplateHelpers.Now);
+        scriptObject.Import("now_fmt", (Func<string?, string>)(fmt => ScribanTemplateHelpers.NowFormatted(fmt)));
+        // date_format works on DateTime objects returned by now()
+        scriptObject.Import("date_format", (Func<DateTime, object?, string>)((dt, fmt) => ScribanTemplateHelpers.DateFormat(dt, fmt?.ToString())));
         scriptObject.Import("random_bool", (Func<bool>)ScribanTemplateHelpers.RandomBool);
+        scriptObject.Import("upper", (Func<string?, string>)ScribanTemplateHelpers.Upper);
+        scriptObject.Import("lower", (Func<string?, string>)ScribanTemplateHelpers.Lower);
+        scriptObject.Import("random_number_string", (Func<int, string>)ScribanTemplateHelpers.RandomNumberString);
+        scriptObject.Import("random_company_name", (Func<string>)ScribanTemplateHelpers.RandomCompanyName);
+        scriptObject.Import("random_city", (Func<string>)ScribanTemplateHelpers.RandomCity);
+        scriptObject.Import("random_country", (Func<string>)ScribanTemplateHelpers.RandomCountry);
+        scriptObject.Import("random_currency_code", (Func<string>)ScribanTemplateHelpers.RandomCurrencyCode);
+        scriptObject.Import("random_product_name", (Func<string>)ScribanTemplateHelpers.RandomProductName);
+        scriptObject.Import("random_job_title", (Func<string>)ScribanTemplateHelpers.RandomJobTitle);
+        scriptObject.Import("random_address", (Func<string>)ScribanTemplateHelpers.RandomAddress);
+        scriptObject.Import("random_iban", (Func<string>)ScribanTemplateHelpers.RandomIban);
+
+        // Personal & Contact
+        scriptObject.Import("random_username", (Func<string>)ScribanTemplateHelpers.RandomUsername);
+        scriptObject.Import("random_password", (Func<string>)ScribanTemplateHelpers.RandomPassword);
+        scriptObject.Import("random_age", (Func<int>)ScribanTemplateHelpers.RandomAge);
+        scriptObject.Import("random_birthdate", (Func<string>)ScribanTemplateHelpers.RandomBirthdate);
+        scriptObject.Import("random_zip_code", (Func<string>)ScribanTemplateHelpers.RandomZipCode);
+        scriptObject.Import("random_latitude", (Func<double>)ScribanTemplateHelpers.RandomLatitude);
+        scriptObject.Import("random_longitude", (Func<double>)ScribanTemplateHelpers.RandomLongitude);
+
+        // Finance & Commerce
+        scriptObject.Import("random_account_number", (Func<string>)ScribanTemplateHelpers.RandomAccountNumber);
+        scriptObject.Import("random_swift_code", (Func<string>)ScribanTemplateHelpers.RandomSwiftCode);
+        scriptObject.Import("random_credit_card_number", (Func<string>)ScribanTemplateHelpers.RandomCreditCardNumber);
+        scriptObject.Import("random_price", (Func<string>)ScribanTemplateHelpers.RandomPrice);
+        scriptObject.Import("random_stock_symbol", (Func<string>)ScribanTemplateHelpers.RandomStockSymbol);
+        scriptObject.Import("random_transaction_type", (Func<string>)ScribanTemplateHelpers.RandomTransactionType);
+
+        // System & Technical
+        scriptObject.Import("random_ip", (Func<string>)ScribanTemplateHelpers.RandomIp);
+        scriptObject.Import("random_mac_address", (Func<string>)ScribanTemplateHelpers.RandomMacAddress);
+        scriptObject.Import("random_url", (Func<string>)ScribanTemplateHelpers.RandomUrl);
+        scriptObject.Import("random_status", (Func<string>)ScribanTemplateHelpers.RandomStatus);
+        scriptObject.Import("random_http_status_code", (Func<int>)ScribanTemplateHelpers.RandomHttpStatusCode);
+        scriptObject.Import("random_color", (Func<string>)ScribanTemplateHelpers.RandomColor);
+        scriptObject.Import("random_hex_color", (Func<string>)ScribanTemplateHelpers.RandomHexColor);
+
+        // Domain & Business
+        scriptObject.Import("random_department", (Func<string>)ScribanTemplateHelpers.RandomDepartment);
+        scriptObject.Import("random_category", (Func<string>)ScribanTemplateHelpers.RandomCategory);
+        scriptObject.Import("random_role", (Func<string>)ScribanTemplateHelpers.RandomRole);
+        scriptObject.Import("random_priority", (Func<string>)ScribanTemplateHelpers.RandomPriority);
+        scriptObject.Import("random_ticket_status", (Func<string>)ScribanTemplateHelpers.RandomTicketStatus);
+        scriptObject.Import("random_order_status", (Func<string>)ScribanTemplateHelpers.RandomOrderStatus);
+        scriptObject.Import("random_language_code", (Func<string>)ScribanTemplateHelpers.RandomLanguageCode);
+        scriptObject.Import("random_continent", (Func<string>)ScribanTemplateHelpers.RandomContinent);
+        scriptObject.Import("random_timezone", (Func<string>)ScribanTemplateHelpers.RandomTimezone);
+        scriptObject.Import("random_file_extension", (Func<string>)ScribanTemplateHelpers.RandomFileExtension);
+        scriptObject.Import("random_mime_type", (Func<string>)ScribanTemplateHelpers.RandomMimeType);
+
+        // Arithmetic helpers (Scriban-compatible)
+        scriptObject.Import("add",      (Func<double, double, double>)ScribanTemplateHelpers.Add);
+        scriptObject.Import("subtract", (Func<double, double, double>)ScribanTemplateHelpers.Subtract);
+        scriptObject.Import("multiply", (Func<double, double, double>)ScribanTemplateHelpers.Multiply);
+        scriptObject.Import("divide",   (Func<double, double, double>)ScribanTemplateHelpers.Divide);
+
+        // Date/time helpers (Scriban-compatible)
+        scriptObject.Import("date_time_add",     (Func<DateTime, double, string, string>)ScribanTemplateHelpers.DateTimeAdd);
+        scriptObject.Import("date_time_add_fmt", (Func<DateTime, double, string, object?, string>)((dt, amt, unit, fmt) => ScribanTemplateHelpers.DateTimeAddFmt(dt, amt, unit, fmt?.ToString())));
+
+        // Faker-style helper (Scriban-compatible)
+        scriptObject.Import("faker", (Func<string, object[], object>)ScribanTemplateHelpers.Faker);
+
+        // body('fieldName') shorthand — Scriban-compatible convenience for request.body.field
+        var capturedBody = bodyForTemplate;
+        scriptObject.Import("body", (Func<string, object?>)(field => ScribanTemplateHelpers.BodyField(capturedBody, field)));
 
         // Data buckets (from context, populated when collection has buckets)
         if (context?.Buckets != null)

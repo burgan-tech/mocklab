@@ -1,21 +1,21 @@
-### Mock Response Servisi Test İstekleri
+### Mock Response Service Test Requests
 
 @host = http://localhost:5000
 
 ### ============================================
-### ADMIN API - Mock Yönetimi
+### ADMIN API - Mock Management
 ### ============================================
 
-### 1. Tüm mock'ları listele
+### 1. List all mocks
 GET {{host}}/_admin/mocks
 
-### 2. Sadece aktif mock'ları listele
+### 2. List only active mocks
 GET {{host}}/_admin/mocks?isActive=true
 
-### 3. Belirli bir mock'u getir
+### 3. Get a specific mock
 GET {{host}}/_admin/mocks/1
 
-### 4. Yeni mock ekle - GET request
+### 4. Add new mock - GET request
 POST {{host}}/_admin/mocks
 Content-Type: application/json
 
@@ -25,11 +25,11 @@ Content-Type: application/json
   "statusCode": 200,
   "responseBody": "{\"orders\": [{\"id\": 1, \"total\": 250.00}, {\"id\": 2, \"total\": 180.50}]}",
   "contentType": "application/json",
-  "description": "Sipariş listesi",
+  "description": "Order list",
   "isActive": true
 }
 
-### 5. Yeni mock ekle - POST request
+### 5. Add new mock - POST request
 POST {{host}}/_admin/mocks
 Content-Type: application/json
 
@@ -39,11 +39,11 @@ Content-Type: application/json
   "statusCode": 201,
   "responseBody": "{\"id\": 100, \"message\": \"Order created\", \"total\": 350.00}",
   "contentType": "application/json",
-  "description": "Yeni sipariş oluşturma",
+  "description": "Create new order",
   "isActive": true
 }
 
-### 6. Yeni mock ekle - Parametreli route
+### 6. Add new mock - Parameterized route
 POST {{host}}/_admin/mocks
 Content-Type: application/json
 
@@ -53,11 +53,11 @@ Content-Type: application/json
   "statusCode": 200,
   "responseBody": "{\"id\": 1, \"status\": \"completed\", \"total\": 250.00, \"items\": [{\"name\": \"Product A\", \"price\": 250.00}]}",
   "contentType": "application/json",
-  "description": "Sipariş detayı",
+  "description": "Order detail",
   "isActive": true
 }
 
-### 7. Yeni mock ekle - Query string ile
+### 7. Add new mock - With query string
 POST {{host}}/_admin/mocks
 Content-Type: application/json
 
@@ -68,11 +68,11 @@ Content-Type: application/json
   "statusCode": 200,
   "responseBody": "{\"query\": \"laptop\", \"results\": [{\"id\": 1, \"name\": \"Gaming Laptop\", \"price\": 1500}]}",
   "contentType": "application/json",
-  "description": "Arama sonuçları",
+  "description": "Search results",
   "isActive": true
 }
 
-### 8. Mock güncelle
+### 8. Update mock
 PUT {{host}}/_admin/mocks/1
 Content-Type: application/json
 
@@ -82,36 +82,36 @@ Content-Type: application/json
   "statusCode": 200,
   "responseBody": "{\"users\": [{\"id\": 1, \"name\": \"John Updated\"}, {\"id\": 2, \"name\": \"Jane Updated\"}]}",
   "contentType": "application/json",
-  "description": "Güncellenmiş kullanıcı listesi",
+  "description": "Updated user list",
   "isActive": true
 }
 
-### 9. Mock'u aktif/pasif yap (toggle)
+### 9. Toggle mock active/inactive
 PATCH {{host}}/_admin/mocks/1/toggle
 
-### 10. Mock sil
+### 10. Delete mock
 DELETE {{host}}/_admin/mocks/5
 
-### 11. Tüm mock'ları temizle (DİKKAT!)
+### 11. Clear all mocks (CAUTION!)
 # DELETE {{host}}/_admin/mocks/clear
 
 ### ============================================
-### MOCK RESPONSE TESTLERI
+### MOCK RESPONSE TESTS
 ### ============================================
 
-### Test 1: Kullanıcı listesi (seed data)
+### Test 1: User list (seed data)
 GET {{host}}/api/users
 
-### Test 2: Tekil kullanıcı (parametreli route, seed data)
+### Test 2: Single user (parameterized route, seed data)
 GET {{host}}/api/users/123
 
-### Test 3: Farklı ID ile kullanıcı
+### Test 3: User with different ID
 GET {{host}}/api/users/456
 
-### Test 4: Ürün listesi (kategorili, seed data)
+### Test 4: Product list (with category, seed data)
 GET {{host}}/api/products?category=electronics
 
-### Test 5: POST - Yeni kullanıcı (seed data)
+### Test 5: POST - New user (seed data)
 POST {{host}}/api/users
 Content-Type: application/json
 
@@ -120,7 +120,7 @@ Content-Type: application/json
   "email": "test@example.com"
 }
 
-### Test 6: Tanımsız route (404 dönmeli)
+### Test 6: Undefined route (should return 404)
 GET {{host}}/api/undefined/route
 
 ### Test 7: PUT request
@@ -135,24 +135,24 @@ Content-Type: application/json
 ### Test 8: DELETE request
 DELETE {{host}}/api/users/1
 
-### Test 9: Sipariş listesi (yukarıda oluşturulursa)
+### Test 9: Order list (if created above)
 GET {{host}}/api/orders
 
-### Test 10: Sipariş detayı (yukarıda oluşturulursa)
+### Test 10: Order detail (if created above)
 GET {{host}}/api/orders/123
 
-### Test 11: Arama (yukarıda oluşturulursa)
+### Test 11: Search (if created above)
 GET {{host}}/api/search?q=laptop
 
 ### ============================================
-### EDGE CASE TESTLERI
+### EDGE CASE TESTS
 ### ============================================
 
-### Test: Çok uzun route
+### Test: Very long route
 GET {{host}}/api/very/long/route/with/many/segments/test
 
-### Test: Özel karakterlerle route
+### Test: Route with special characters
 GET {{host}}/api/users/test@email.com
 
-### Test: Query string ile kombinasyon
+### Test: Combination with query string
 GET {{host}}/api/products?category=electronics&sort=price&order=desc

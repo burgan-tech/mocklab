@@ -26,7 +26,9 @@ import { mockService } from '../services/mockService';
 import { collectionService } from '../services/collectionService';
 import { folderService } from '../services/folderService';
 import { JsonBodyEditor } from '../components/JsonBodyEditor';
+import { HttpStatusCodeInput } from '../components/HttpStatusCodeInput';
 import { TemplateVariablesModal } from '../components/TemplateVariablesModal';
+import { getInputValue } from '../utils/httpStatusCodes';
 
 export default function MockManagementPage() {
   const navigate = useNavigate();
@@ -139,7 +141,7 @@ export default function MockManagementPage() {
 
   // Parse ConditionField (from API) into FieldScope + CustomField for UI
   const parseConditionField = (conditionField) => {
-    if (!conditionField || typeof conditionField !== 'string') return { fieldScope: 'body', customField: '' };
+    if (!conditionField || typeof conditionField !== 'string' || conditionField.trim() === '') return { fieldScope: 'none', customField: '' };
     const s = conditionField.trim();
     if (s.startsWith('body.')) return { fieldScope: 'body', customField: s.slice(5) };
     if (s.startsWith('header.')) return { fieldScope: 'header', customField: s.slice(7) };
@@ -155,6 +157,7 @@ export default function MockManagementPage() {
   const buildConditionField = (fieldScope, customField) => {
     const scope = (fieldScope || 'body').toLowerCase();
     const custom = (customField || '').trim();
+    if (scope === 'none') return '';
     if (scope === 'method') return 'method';
     if (scope === 'path') return 'path';
     if (scope === 'body') return custom ? `body.${custom}` : 'body';
@@ -191,20 +194,9 @@ export default function MockManagementPage() {
     { label: 'application/x-www-form-urlencoded', value: 'application/x-www-form-urlencoded' }
   ];
 
-  const statusCodeOptions = [
-    { label: '200 - OK', value: 200 },
-    { label: '201 - Created', value: 201 },
-    { label: '204 - No Content', value: 204 },
-    { label: '400 - Bad Request', value: 400 },
-    { label: '401 - Unauthorized', value: 401 },
-    { label: '403 - Forbidden', value: 403 },
-    { label: '404 - Not Found', value: 404 },
-    { label: '500 - Internal Server Error', value: 500 },
-    { label: '503 - Service Unavailable', value: 503 }
-  ];
-
   const operatorOptions = [
     { label: 'Equals', value: 'equals' },
+    { label: 'Not Equals', value: 'notEquals' },
     { label: 'Contains', value: 'contains' },
     { label: 'Starts With', value: 'startsWith' },
     { label: 'Ends With', value: 'endsWith' },
@@ -223,6 +215,7 @@ export default function MockManagementPage() {
   ];
 
   const fieldScopeOptions = [
+    { label: 'No condition (default / else)', value: 'none' },
     { label: 'Body', value: 'body' },
     { label: 'Header', value: 'header' },
     { label: 'Query parameter', value: 'query' },
@@ -1058,7 +1051,7 @@ export default function MockManagementPage() {
   };
 
   const onInputChange = (e, name) => {
-    const val = (e.target && e.target.value) || '';
+    const val = getInputValue(e);
     let _mock = { ...mock };
     _mock[`${name}`] = val;
     setMock(_mock);
@@ -1312,10 +1305,9 @@ export default function MockManagementPage() {
                 <div className="col-12 md:col-3">
                   <div className="field mb-2">
                     <label className="text-sm font-medium mb-1 block">Status Code</label>
-                    <Dropdown
+                    <HttpStatusCodeInput
                       value={rule.statusCode}
-                      options={statusCodeOptions}
-                      onChange={(e) => updateRule(index, 'statusCode', e.value)}
+                      onChange={(value) => updateRule(index, 'statusCode', value)}
                       className="w-full"
                       style={{ fontSize: '0.85rem' }}
                     />
@@ -1395,44 +1387,57 @@ export default function MockManagementPage() {
                     />
                   </div>
                 </div>
-                <div className="col-12 md:col-3">
-                  <div className="field mb-2">
-                    <label className="text-sm font-medium mb-1 block">Custom Field</label>
-                    <InputText
-                      value={rule.customField ?? ''}
-                      onChange={(e) => updateRule(index, 'customField', e.target.value)}
-                      placeholder={getCustomFieldPlaceholder(rule.fieldScope)}
-                      disabled={rule.fieldScope === 'method' || rule.fieldScope === 'path'}
-                      className="w-full"
-                      style={{ fontSize: '0.85rem' }}
-                    />
+                {rule.fieldScope !== 'none' && (
+                  <>
+                    <div className="col-12 md:col-3">
+                      <div className="field mb-2">
+                        <label className="text-sm font-medium mb-1 block">Custom Field</label>
+                        <InputText
+                          value={rule.customField ?? ''}
+                          onChange={(e) => updateRule(index, 'customField', e.target.value)}
+                          placeholder={getCustomFieldPlaceholder(rule.fieldScope)}
+                          disabled={rule.fieldScope === 'method' || rule.fieldScope === 'path'}
+                          className="w-full"
+                          style={{ fontSize: '0.85rem' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="col-12 md:col-2">
+                      <div className="field mb-2">
+                        <label className="text-sm font-medium mb-1 block">Operator</label>
+                        <Dropdown
+                          value={rule.conditionOperator}
+                          options={operatorOptions}
+                          onChange={(e) => updateRule(index, 'conditionOperator', e.value)}
+                          className="w-full"
+                          style={{ fontSize: '0.85rem' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="col-12 md:col-3">
+                      <div className="field mb-2">
+                        <label className="text-sm font-medium mb-1 block">Value</label>
+                        <InputText
+                          value={rule.conditionValue || ''}
+                          onChange={(e) => updateRule(index, 'conditionValue', e.target.value)}
+                          placeholder="Match value"
+                          disabled={rule.conditionOperator === 'exists' || rule.conditionOperator === 'notExists'}
+                          className="w-full"
+                          style={{ fontSize: '0.85rem' }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+                {rule.fieldScope === 'none' && (
+                  <div className="col-12 md:col-8">
+                    <div className="flex align-items-center h-full pb-2">
+                      <span className="text-sm text-color-secondary">
+                        This rule always matches — use it as a default/else branch (place it last with the highest priority number).
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="col-12 md:col-2">
-                  <div className="field mb-2">
-                    <label className="text-sm font-medium mb-1 block">Operator</label>
-                    <Dropdown
-                      value={rule.conditionOperator}
-                      options={operatorOptions}
-                      onChange={(e) => updateRule(index, 'conditionOperator', e.value)}
-                      className="w-full"
-                      style={{ fontSize: '0.85rem' }}
-                    />
-                  </div>
-                </div>
-                <div className="col-12 md:col-3">
-                  <div className="field mb-2">
-                    <label className="text-sm font-medium mb-1 block">Value</label>
-                    <InputText
-                      value={rule.conditionValue || ''}
-                      onChange={(e) => updateRule(index, 'conditionValue', e.target.value)}
-                      placeholder="Match value"
-                      disabled={rule.conditionOperator === 'exists' || rule.conditionOperator === 'notExists'}
-                      className="w-full"
-                      style={{ fontSize: '0.85rem' }}
-                    />
-                  </div>
-                </div>
+                )}
                 <div className="col-12 md:col-2">
                   <div className="field mb-2">
                     <label className="text-sm font-medium mb-1 block">Priority</label>
@@ -1525,10 +1530,9 @@ export default function MockManagementPage() {
             <div className="col-12 md:col-3">
               <div className="field mb-2">
                 <label className="text-sm font-medium mb-1 block">Status Code</label>
-                <Dropdown
+                <HttpStatusCodeInput
                   value={item.statusCode}
-                  options={statusCodeOptions}
-                  onChange={(e) => updateSequenceItem(index, 'statusCode', e.value)}
+                  onChange={(value) => updateSequenceItem(index, 'statusCode', value)}
                   className="w-full"
                   style={{ fontSize: '0.85rem' }}
                 />
@@ -2367,11 +2371,10 @@ export default function MockManagementPage() {
               <div className="col-12 md:col-6">
                 <div className="field">
                   <label htmlFor="statusCode">Status Code <span className="text-red-500">*</span></label>
-                  <Dropdown
-                    id="statusCode"
-                    value={mock?.statusCode || 200}
-                    options={statusCodeOptions}
-                    onChange={(e) => onInputChange(e, 'statusCode')}
+                  <HttpStatusCodeInput
+                    inputId="statusCode"
+                    value={mock?.statusCode ?? 200}
+                    onChange={(value) => setMock((prev) => ({ ...prev, statusCode: value }))}
                     placeholder="Select status code"
                   />
                 </div>

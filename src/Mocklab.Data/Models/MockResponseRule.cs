@@ -22,7 +22,7 @@ public class MockResponseRule
     public string ConditionField { get; set; } = string.Empty;
 
     /// <summary>
-    /// The comparison operator: equals, contains, startsWith, endsWith, regex, exists, notExists, greaterThan, lessThan
+    /// The comparison operator: equals, notEquals, contains, startsWith, endsWith, regex, exists, notExists, greaterThan, lessThan
     /// </summary>
     public string ConditionOperator { get; set; } = "equals";
 
