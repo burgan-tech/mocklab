@@ -24,6 +24,13 @@ public class RuleEvaluator : IRuleEvaluator
 
         foreach (var rule in orderedRules)
         {
+            // No condition defined → catch-all / default rule (matches every request)
+            if (string.IsNullOrEmpty(rule.ConditionField))
+            {
+                _logger.LogInformation("Rule matched (no condition / default): Id={RuleId}", rule.Id);
+                return rule;
+            }
+
             try
             {
                 var fieldValue = ExtractFieldValue(rule.ConditionField, request, requestBody, routeParams);
@@ -219,6 +226,7 @@ public class RuleEvaluator : IRuleEvaluator
         return conditionOperator.ToLowerInvariant() switch
         {
             "equals" => string.Equals(fieldValue, conditionValue, StringComparison.OrdinalIgnoreCase),
+            "notequals" => !string.Equals(fieldValue, conditionValue, StringComparison.OrdinalIgnoreCase),
             "contains" => fieldValue != null && conditionValue != null &&
                           fieldValue.Contains(conditionValue, StringComparison.OrdinalIgnoreCase),
             "startswith" => fieldValue != null && conditionValue != null &&
