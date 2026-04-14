@@ -2,19 +2,8 @@ using Mocklab.Host.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Mocklab services with configuration from appsettings.json
-builder.Services.AddMocklab(options =>
-{
-    // Bind configuration from appsettings.json "Mocklab" section
-    builder.Configuration.GetSection("Mocklab").Bind(options);
-    
-    // Override connection string if not set in config
-    if (string.IsNullOrEmpty(options.ConnectionString))
-    {
-        options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-                                    ?? "Data Source=mocklab.db";
-    }
-});
+// Add Mocklab services — reads the "Mocklab" appsettings section automatically
+builder.Services.AddMocklab(builder.Configuration);
 
 // Add CORS for frontend development
 builder.Services.AddCors(options =>

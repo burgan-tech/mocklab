@@ -70,4 +70,13 @@ public class MocklabOptions
     /// Default: "sqlserver"
     /// </summary>
     public string DatabaseProvider { get; set; } = "sqlserver";
+
+    /// <summary>
+    /// Optional directory path scanned recursively for *.json seed files on startup.
+    /// Each JSON file must follow the collection export format (collection + folders + mocks).
+    /// Leave empty to disable. Supports absolute and relative paths.
+    /// Can be overridden at runtime with the Mocklab__SeedDirectory environment variable.
+    /// Default: "" (disabled)
+    /// </summary>
+    public string SeedDirectory { get; set; } = "";
 }
