@@ -168,6 +168,8 @@ Returns the collection and its mocks in the same format as import, making it eas
 
 Rules let a single mock endpoint return different responses based on the incoming request. Rules are evaluated in **priority order** (ascending) and the **first match wins**. If no rule matches, the default mock response is returned.
 
+**Default / catch-all rule:** A rule with an empty `conditionField` always matches. Use it as the last rule (highest priority number) to act as an `else` branch — it fires when no earlier conditional rule matched.
+
 > Rules and sequential mode are mutually exclusive. If `isSequential` is true, rules are not evaluated.
 
 ### Rule Model
@@ -260,6 +262,31 @@ curl -X POST http://localhost:5000/api/payments \
   -d '{"amount": 500, "currency": "BTC"}'
 ```
 
+### Example: If/Else Pattern with Default Rule
+
+A rule with an **empty `conditionField`** always matches. Place it last (highest priority number) to create an `else` branch that fires whenever no earlier conditional rule matched.
+
+Create a mock for `POST /api/accounts/transfer` with these rules:
+
+| Priority | conditionField | Operator | conditionValue | Response |
+|---|---|---|---|---|
+| 0 | `body.accountType` | equals | `SAVINGS` | 200 savings-specific response |
+| 1 | *(empty — default)* | — | — | 200 general response |
+
+```bash
+# POST with accountType=SAVINGS -> rule 0 matches
+curl -X POST http://localhost:5000/api/accounts/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"accountType": "SAVINGS", "amount": 1000}'
+
+# POST with any other accountType -> rule 0 skipped, default rule (priority 1) matches
+curl -X POST http://localhost:5000/api/accounts/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"accountType": "CHECKING", "amount": 500}'
+```
+
+> The default rule response body can also use template variables such as `{{ request.body.accountType }}` to echo fields from the incoming request.
+
 ---
 
 ## Sequential Responses
@@ -325,7 +352,7 @@ Response bodies and rule response header values (when a rule matches) are proces
 
 ### Template contract (what you can use)
 
-- **request:** `request.method`, `request.path`, `request.body`, `request.json` (parsed request body; null if not valid JSON), `request.query`, `request.headers`, `request.cookies`, `request.route`.
+- **request:** `request.method`, `request.path`, `request.body` (parsed JSON object when body is valid JSON — supports field navigation like `request.body.accountName`; falls back to raw string for non-JSON bodies), `request.body_raw` (always the raw string body), `request.json` (alias for parsed body; kept for backward compatibility), `request.query`, `request.headers`, `request.cookies`, `request.route`.
 - **headers (top-level):** Case-insensitive header access, e.g. `headers["x-correlation-id"]`, `headers["Authorization"]`. Use when the header might be missing: `headers["x-correlation-id"] | "default"` or null coalescing.
 - **helpers:** `helpers.guid()`, `helpers.rand_int(min, maxInclusive)`, `helpers.alphanum(length)`, `helpers.username()` (e.g. fast_tiger42), `helpers.email(domain?)` (default domain example.com).
 
@@ -339,6 +366,111 @@ Response bodies and rule response header values (when a rule matches) are proces
 | `{{ helpers.username() }}` | Random username (e.g. fast_tiger42) |
 | `{{ helpers.email() }}` or `{{ helpers.email("my.domain.com") }}` | Random email |
 
+### String helpers
+
+| Expression | Description |
+|---|---|
+| `{{ upper "hello" }}` | Convert string to uppercase |
+| `{{ lower "HELLO" }}` | Convert string to lowercase |
+| `{{ upper request.body.accountName }}` | Uppercase a field from the request body |
+
+### Pre-generated data helpers
+
+Ready-made random data for common domain objects — no external dependencies. All helpers return a single random value each time they are called.
+
+#### Location & Identity
+
+| Expression | Description | Example output |
+|---|---|---|
+| `{{ random_company_name }}` | Random company name | `Acme Corp` |
+| `{{ random_city }}` | Random city name | `Istanbul` |
+| `{{ random_country }}` | Random country name | `Germany` |
+| `{{ random_address }}` | Random street address | `42 Oak Avenue, Berlin` |
+| `{{ random_zip_code }}` | Random postal / zip code | `34100` |
+| `{{ random_continent }}` | Random continent name | `Europe` |
+| `{{ random_timezone }}` | Random IANA timezone | `Europe/Istanbul` |
+| `{{ random_latitude }}` | Random latitude (decimal) | `41.0082` |
+| `{{ random_longitude }}` | Random longitude (decimal) | `28.9784` |
+| `{{ random_language_code }}` | Random ISO 639-1 language code | `tr` |
+
+#### People & Authentication
+
+| Expression | Description | Example output |
+|---|---|---|
+| `{{ random_job_title }}` | Random job title | `Software Engineer` |
+| `{{ random_department }}` | Random department name | `Engineering` |
+| `{{ random_username }}` | Random username | `swift_eagle42` |
+| `{{ random_password }}` | Random mock password | `Xk9mP2!b` |
+| `{{ random_age }}` | Random age (18–80) | `34` |
+| `{{ random_birthdate }}` | Random birthdate (yyyy-MM-dd) | `1990-04-15` |
+| `{{ random_role }}` | Random user role | `admin` |
+
+#### Finance & Commerce
+
+| Expression | Description | Example output |
+|---|---|---|
+| `{{ random_currency_code }}` | Random ISO 4217 currency code | `TRY` |
+| `{{ random_iban }}` | Random IBAN-like account number | `TR8512344831957204839217` |
+| `{{ random_account_number }}` | Random bank account number | `TR33000610051978645784` |
+| `{{ random_swift_code }}` | Random SWIFT/BIC code | `ISBKTRISXXX` |
+| `{{ random_credit_card_number }}` | Random Luhn-valid 16-digit card number | `4532015112830366` |
+| `{{ random_price }}` | Random price (decimal string) | `249.99` |
+| `{{ random_stock_symbol }}` | Random stock ticker symbol | `AAPL` |
+| `{{ random_transaction_type }}` | Random transaction type | `credit` |
+| `{{ random_product_name }}` | Random product name | `Ultra Gadget` |
+
+#### Business & Workflow
+
+| Expression | Description | Example output |
+|---|---|---|
+| `{{ random_category }}` | Random general category | `Electronics` |
+| `{{ random_status }}` | Random entity status | `active` |
+| `{{ random_priority }}` | Random priority level | `high` |
+| `{{ random_order_status }}` | Random order status | `shipped` |
+| `{{ random_ticket_status }}` | Random support ticket status | `open` |
+
+#### System & Technical
+
+| Expression | Description | Example output |
+|---|---|---|
+| `{{ random_ip }}` | Random IPv4 address | `192.168.1.42` |
+| `{{ random_mac_address }}` | Random MAC address | `00:1A:2B:3C:4D:5E` |
+| `{{ random_url }}` | Random API URL | `https://mock.io/api/v1/users` |
+| `{{ random_http_status_code }}` | Random HTTP status code | `200` |
+| `{{ random_color }}` | Random color name | `crimson` |
+| `{{ random_hex_color }}` | Random hex color code | `#3A7BD5` |
+| `{{ random_file_extension }}` | Random file extension | `pdf` |
+| `{{ random_mime_type }}` | Random MIME type | `application/json` |
+
+#### Example: Full user profile using pre-generated helpers
+
+```json
+{
+  "id": "{{ helpers.guid() }}",
+  "username": "{{ random_username }}",
+  "email": "{{ helpers.email() }}",
+  "role": "{{ random_role }}",
+  "age": {{ random_age }},
+  "birthdate": "{{ random_birthdate }}",
+  "department": "{{ random_department }}",
+  "jobTitle": "{{ random_job_title }}",
+  "address": {
+    "street": "{{ random_address }}",
+    "city": "{{ random_city }}",
+    "country": "{{ random_country }}",
+    "zip": "{{ random_zip_code }}",
+    "timezone": "{{ random_timezone }}"
+  },
+  "bankAccount": {
+    "iban": "{{ random_iban }}",
+    "swift": "{{ random_swift_code }}",
+    "currency": "{{ random_currency_code }}"
+  },
+  "status": "{{ random_status }}",
+  "language": "{{ random_language_code }}"
+}
+```
+
 ### Legacy global helpers (still supported)
 
 | Scriban | Description |
@@ -349,8 +481,11 @@ Response bodies and rule response header values (when a rule matches) are proces
 
 | Expression | Description |
 |---|---|
-| `{{ request.method }}`, `{{ request.path }}`, `{{ request.body }}` | HTTP method, path, raw body |
-| `{{ request.json }}` | Parsed request body (object or null if invalid/empty JSON) |
+| `{{ request.method }}`, `{{ request.path }}` | HTTP method and request path |
+| `{{ request.body }}` | Parsed JSON object when body is valid JSON (use `request.body.accountName` to navigate fields). Falls back to raw string for non-JSON bodies. |
+| `{{ request.body.accountName }}` | Navigate a specific field in a JSON request body |
+| `{{ request.body_raw }}` | Always the raw request body string, regardless of content type |
+| `{{ request.json }}` | Alias for parsed body — same as `request.body` (kept for backward compatibility) |
 | `{{ request.query.page }}` or `{{ request.query["tier"] }}` | Query parameter |
 | `{{ request.headers["X-Api-Key"] }}` | Request header |
 | `{{ request.cookies.sessionId }}` | Request cookie |
@@ -403,6 +538,23 @@ Data bucket API: `GET/POST /_admin/collections/{collectionId}/data-buckets`, `GE
   "bodyParsed": {{ request.json }}
 }
 ```
+
+### Example: JSON body field navigation (`request.body.field`)
+
+When the request body is valid JSON, `request.body` is automatically parsed and fields can be navigated directly. Use `request.body_raw` when you need the original string.
+
+```json
+{
+  "greeting": "Hello, {{ request.body.accountName }}!",
+  "accountType": "{{ upper request.body.accountType }}",
+  "transferId": "{{ helpers.guid() }}",
+  "currency": "{{ request.body.currency }}",
+  "echoAmount": {{ request.body.amount }},
+  "rawPayload": "{{ request.body_raw }}"
+}
+```
+
+For nested JSON: `{{ request.body.user.name }}`, `{{ request.body.address.city }}`.
 
 > Multiple occurrences of the same helper in one response produce different values (e.g. two `{{ helpers.guid() }}` yield two different UUIDs).
 

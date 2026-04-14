@@ -7,6 +7,16 @@ builder.Services.AddMocklab();
 app.UseMocklab();
 ```
 
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Documentation](#documentation)
+- [Tech Stack](#tech-stack)
+- [Project Layout](#project-layout)
+- [Publishing (CI/CD)](#publishing-cicd)
+- [License](#license)
+
 ## Features
 
 - All HTTP methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
@@ -64,6 +74,7 @@ docker run -d --name mocklab -p 8080:5000 mocklab:latest
 
 | Guide | Description |
 |---|---|
+| [User Guide](docs/user-guide.md) | Product overview, feature walkthrough, UI tour, and end-user scenarios |
 | [Getting Started](docs/getting-started.md) | Local development, debugging, frontend build, migrations |
 | [Docker](docs/docker.md) | Building images, running containers, Docker Compose with PostgreSQL |
 | [Integration](docs/integration.md) | Adding Mocklab to an existing project, configuration options, examples |

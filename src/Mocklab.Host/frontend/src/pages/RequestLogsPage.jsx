@@ -13,6 +13,7 @@ import { IconField } from 'primereact/iconfield';
 import { InputIcon } from 'primereact/inputicon';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { requestLogService } from '../services/requestLogService';
+import { getInputValue, httpStatusCodeFilterOptions, parseHttpStatusCode } from '../utils/httpStatusCodes';
 
 export default function RequestLogsPage() {
   const [logs, setLogs] = useState([]);
@@ -59,18 +60,12 @@ export default function RequestLogsPage() {
     { label: 'Unmatched', value: 'unmatched' }
   ];
 
-  const statusCodeOptions = [
-    { label: 'All Status', value: 'ALL' },
-    { label: '200 - OK', value: 200 },
-    { label: '201 - Created', value: 201 },
-    { label: '204 - No Content', value: 204 },
-    { label: '400 - Bad Request', value: 400 },
-    { label: '401 - Unauthorized', value: 401 },
-    { label: '403 - Forbidden', value: 403 },
-    { label: '404 - Not Found', value: 404 },
-    { label: '500 - Internal Server Error', value: 500 },
-    { label: '503 - Service Unavailable', value: 503 }
-  ];
+  const handleStatusCodeFilterChange = (event) => {
+    const rawValue = getInputValue(event);
+    const nextValue = rawValue === 'ALL' ? 'ALL' : parseHttpStatusCode(rawValue, null);
+    setStatusCodeFilter(nextValue);
+    resetPage();
+  };
 
   const onRouteFilterChange = (value) => {
     setRouteFilter(value);
@@ -284,10 +279,12 @@ export default function RequestLogsPage() {
       />
       <Dropdown
         value={statusCodeFilter}
-        options={statusCodeOptions}
-        onChange={(e) => { setStatusCodeFilter(e.value); resetPage(); }}
+        options={httpStatusCodeFilterOptions}
+        onChange={handleStatusCodeFilterChange}
         placeholder="Status Code"
-        style={{ width: '11rem' }}
+        style={{ width: '14rem' }}
+        editable
+        filter
       />
       <Dropdown
         value={matchedFilter}
