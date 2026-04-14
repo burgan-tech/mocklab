@@ -76,6 +76,14 @@
   <ItemGroup>
     <EmbeddedResource Include="wwwroot\_mocklab\**\*" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.Development.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 
   <!-- Include ProjectReference DLLs inside the NuGet package -->
   <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">

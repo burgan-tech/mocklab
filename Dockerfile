@@ -49,4 +49,9 @@ EXPOSE 5000
 # Set environment variables
 ENV ASPNETCORE_URLS=http://+:5000
 
+# Optional: mount a directory containing *.json collection seed files.
+# Files are imported recursively on startup; already-imported collections are skipped.
+# Override at runtime: docker run -v ./my-seed-data:/app/seed -e Mocklab__SeedDirectory=/app/seed ...
+ENV Mocklab__SeedDirectory=
+
 ENTRYPOINT ["dotnet", "Mocklab.Host.dll"]

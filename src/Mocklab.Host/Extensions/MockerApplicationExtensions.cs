@@ -1,10 +1,13 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mocklab.Host.Constants;
 using Mocklab.Host.Data;
 using Mocklab.Host.Models;
+using Mocklab.Host.Services;
 
 namespace Mocklab.Host.Extensions;
 
@@ -55,6 +58,13 @@ public static class MocklabApplicationExtensions
             SeedSampleData(dbContext);
         }
 
+        // Seed from directory if configured
+        if (!string.IsNullOrWhiteSpace(options.SeedDirectory))
+        {
+            SeedFromDirectoryAsync(app.ApplicationServices, options.SeedDirectory)
+                .GetAwaiter().GetResult();
+        }
+
         // Enable frontend UI if configured
         if (options.EnableUI)
         {
@@ -62,6 +72,73 @@ public static class MocklabApplicationExtensions
         }
 
         return app;
+    }
+
+    private static async Task SeedFromDirectoryAsync(IServiceProvider services, string seedDirectory)
+    {
+        var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger(nameof(MocklabApplicationExtensions));
+
+        var resolvedPath = Path.IsPathRooted(seedDirectory)
+            ? seedDirectory
+            : Path.Combine(Directory.GetCurrentDirectory(), seedDirectory);
+
+        if (!Directory.Exists(resolvedPath))
+        {
+            logger.LogWarning("Mocklab seed directory '{Path}' does not exist — skipping file seed.", resolvedPath);
+            return;
+        }
+
+        var files = Directory.EnumerateFiles(resolvedPath, "*.json", SearchOption.AllDirectories)
+            .OrderBy(f => f)
+            .ToList();
+
+        if (files.Count == 0)
+        {
+            logger.LogInformation("Mocklab seed directory '{Path}' contains no *.json files.", resolvedPath);
+            return;
+        }
+
+        logger.LogInformation("Mocklab: found {Count} JSON seed file(s) in '{Path}'.", files.Count, resolvedPath);
+
+        int imported = 0, skipped = 0, failed = 0;
+
+        foreach (var file in files)
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(file);
+                using var doc = JsonDocument.Parse(json);
+
+                await using var scope = services.CreateAsyncScope();
+                var importer = scope.ServiceProvider.GetRequiredService<IJsonSeedImporter>();
+                var result = await importer.ImportAsync(doc.RootElement, file);
+
+                if (result.Skipped)
+                {
+                    logger.LogDebug("Mocklab seed: skipped '{File}' — {Reason}.", file, result.SkipReason);
+                    skipped++;
+                }
+                else
+                {
+                    imported++;
+                }
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning("Mocklab seed: failed to parse '{File}' — {Message}. Skipping.", file, ex.Message);
+                failed++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("Mocklab seed: failed to import '{File}' — {Message}. Skipping.", file, ex.Message);
+                failed++;
+            }
+        }
+
+        logger.LogInformation(
+            "Mocklab seed complete — imported: {Imported}, skipped: {Skipped}, failed: {Failed}.",
+            imported, skipped, failed);
     }
 
     /// <summary>
