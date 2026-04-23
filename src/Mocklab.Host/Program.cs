@@ -19,6 +19,8 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddOpenApi();
 
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
 app.MapOpenApi();
@@ -39,6 +41,9 @@ app.UseCors("AllowFrontend");
 
 // Enable Mocklab middleware (handles DB migration, seeding, and frontend UI)
 app.UseMocklab();
+
+// Map health check endpoint for container liveness/readiness probes
+app.MapHealthChecks("/health");
 
 // Map controllers
 app.MapControllers();
