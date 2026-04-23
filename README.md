@@ -14,6 +14,7 @@ app.UseMocklab();
 - [Documentation](#documentation)
 - [Tech Stack](#tech-stack)
 - [Project Layout](#project-layout)
+- [Health Check](#health-check)
 - [Publishing (CI/CD)](#publishing-cicd)
 - [License](#license)
 
@@ -98,6 +99,35 @@ docker run -d --name mocklab -p 8080:5000 mocklab:latest
 | `Mocklab.Migrations.PostgreSql` | PostgreSQL EF Core migrations (native types) |
 
 Each database provider has its own migration assembly with correct column types, so migrations generated for SQLite won't break PostgreSQL (and vice versa). See [Getting Started — Multi-Provider Migrations](docs/getting-started.md#multi-provider-migrations) for details.
+
+## Health Check
+
+Mocklab exposes a built-in health endpoint for container orchestrators (Docker, Kubernetes) to use as a liveness/readiness probe.
+
+```bash
+curl -i http://localhost:5000/health
+# HTTP/1.1 200 OK
+# Healthy
+```
+
+The Docker image already declares a `HEALTHCHECK` instruction, so `docker inspect --format='{{.State.Health.Status}}' <container>` reports `healthy` once the app is up.
+
+Kubernetes probe example:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 5000
+  initialDelaySeconds: 10
+  periodSeconds: 30
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 5000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
 
 ## Publishing (CI/CD)
 
