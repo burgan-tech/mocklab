@@ -124,7 +124,7 @@ Mocklab uses Scriban syntax. You can use simple expressions or full control-flow
 
 ```json
 {
-  "id": "{{ helpers.guid() }}",
+  "id": "{{ guid }}",
   "status": "{{ random_status }}"
 }
 ```
@@ -133,7 +133,7 @@ Mocklab uses Scriban syntax. You can use simple expressions or full control-flow
 {
   "items": [
     {{ for i in 0..2 }}
-      { "id": "{{ helpers.guid() }}", "amount": {{ helpers.rand_int(10, 500) }} }{{ if !for.last }},{{ end }}
+      { "id": "{{ guid }}", "amount": {{ random_int 10 500 }} }{{ if !for.last }},{{ end }}
     {{ end }}
   ]
 }
@@ -175,7 +175,7 @@ Example:
 
 ```json
 {
-  "requestId": "{{ helpers.guid() }}",
+  "requestId": "{{ guid }}",
   "path": "{{ request.path }}",
   "accountName": "{{ upper request.body.accountName }}",
   "tier": "{{ request.query["tier"] }}",
@@ -185,16 +185,18 @@ Example:
 
 ### Core Helper Methods
 
-For common random and string-generation needs, Mocklab exposes a helper namespace:
+For common random and string-generation needs, Mocklab exposes these helpers. Write them as top-level expressions with no parentheses:
 
 | Helper | Description |
 |---|---|
-| `{{ helpers.guid() }}` | Random UUID |
-| `{{ helpers.rand_int(1, 100) }}` | Random integer within a range |
-| `{{ helpers.alphanum(12) }}` | Random alphanumeric string |
-| `{{ helpers.username() }}` | Generated username such as `fast_tiger42` |
-| `{{ helpers.email() }}` | Generated email using `example.com` |
-| `{{ helpers.email("my.domain.com") }}` | Generated email with custom domain |
+| `{{ guid }}` | Random UUID |
+| `{{ random_int 1 100 }}` | Random integer within a range |
+| `{{ random_alpha_numeric 12 }}` | Random alphanumeric string |
+| `{{ random_username }}` | Generated username such as `fast_tiger42` |
+| `{{ random_email }}` | Generated email using `example.com` |
+| `{{ helpers.email "my.domain.com" }}` | Generated email with custom domain |
+
+> Helpers are also available under the `helpers.*` namespace (e.g. `{{ helpers.guid }}`). Use the top-level form shown above for everyday cases.
 
 Additional top-level utility expressions are also available:
 
@@ -392,7 +394,7 @@ The example below combines request values, helpers, and pre-generated content in
 
 ```json
 {
-  "requestId": "{{ helpers.guid() }}",
+  "requestId": "{{ guid }}",
   "customerId": "{{ request.route.id }}",
   "customerName": "{{ request.body.name }}",
   "accountManager": "{{ random_name }}",
@@ -410,7 +412,7 @@ Rules can use the same template capabilities to produce more contextual response
 {
   "tier": "{{ request.query["tier"] }}",
   "priority": "{{ random_priority }}",
-  "campaignCode": "{{ helpers.alphanum(8) }}",
+  "campaignCode": "{{ random_alpha_numeric 8 }}",
   "message": "Premium flow activated for {{ request.headers["X-Customer-Id"] }}"
 }
 ```

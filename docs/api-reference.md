@@ -353,18 +353,18 @@ Response bodies and rule response header values (when a rule matches) are proces
 ### Template contract (what you can use)
 
 - **request:** `request.method`, `request.path`, `request.body` (parsed JSON object when body is valid JSON — supports field navigation like `request.body.accountName`; falls back to raw string for non-JSON bodies), `request.body_raw` (always the raw string body), `request.json` (alias for parsed body; kept for backward compatibility), `request.query`, `request.headers`, `request.cookies`, `request.route`.
-- **headers (top-level):** Case-insensitive header access, e.g. `headers["x-correlation-id"]`, `headers["Authorization"]`. Use when the header might be missing: `headers["x-correlation-id"] | "default"` or null coalescing.
-- **helpers:** `helpers.guid()`, `helpers.rand_int(min, maxInclusive)`, `helpers.alphanum(length)`, `helpers.username()` (e.g. fast_tiger42), `helpers.email(domain?)` (default domain example.com).
+- **headers (top-level):** Case-insensitive header access, e.g. `headers["x-correlation-id"]`, `headers["Authorization"]`.
+- **helpers:** the helpers below are available both as top-level expressions (`guid`, `random_int`, `random_alpha_numeric`, `random_username`, `random_email`) and under the `helpers.*` namespace (`helpers.guid`, `helpers.rand_int min maxInclusive`, `helpers.alphanum length`, `helpers.username`, `helpers.email domain?`).
 
-### Helpers (recommended: `helpers.*`)
+### Helpers (use the top-level form, no parentheses)
 
 | Expression | Description |
 |---|---|
-| `{{ helpers.guid() }}` | Random UUID v4 |
-| `{{ helpers.rand_int(1, 100) }}` | Random integer in [min, maxInclusive] |
-| `{{ helpers.alphanum(12) }}` | Random alphanumeric string (length 12) |
-| `{{ helpers.username() }}` | Random username (e.g. fast_tiger42) |
-| `{{ helpers.email() }}` or `{{ helpers.email("my.domain.com") }}` | Random email |
+| `{{ guid }}` | Random UUID v4 |
+| `{{ random_int 1 100 }}` | Random integer in [min, maxInclusive] |
+| `{{ random_alpha_numeric 12 }}` | Random alphanumeric string (length 12) |
+| `{{ random_username }}` | Random username (e.g. fast_tiger42) |
+| `{{ random_email }}` or `{{ helpers.email "my.domain.com" }}` | Random email (default or custom domain) |
 
 ### String helpers
 
@@ -446,9 +446,9 @@ Ready-made random data for common domain objects — no external dependencies. A
 
 ```json
 {
-  "id": "{{ helpers.guid() }}",
+  "id": "{{ guid }}",
   "username": "{{ random_username }}",
-  "email": "{{ helpers.email() }}",
+  "email": "{{ random_email }}",
   "role": "{{ random_role }}",
   "age": {{ random_age }},
   "birthdate": "{{ random_birthdate }}",
@@ -495,7 +495,7 @@ Ready-made random data for common domain objects — no external dependencies. A
 
 | Expression | Description |
 |---|---|
-| `{{ headers["x-correlation-id"] }}` | Header value (case-insensitive). Use `\| "default"` if missing. |
+| `{{ headers["x-correlation-id"] }}` | Header value (case-insensitive). |
 
 ### Data Buckets
 
@@ -509,17 +509,17 @@ Data bucket API: `GET/POST /_admin/collections/{collectionId}/data-buckets`, `GE
 
 ```json
 {
-  "correlationId": "{{ headers["x-correlation-id"] | helpers.guid() }}",
+  "correlationId": "{{ headers["x-correlation-id"] }}",
   "path": "{{ request.path }}",
   "isPremium": {{ request.query["tier"] == "premium" }},
   "items": [
     {{ for i in 0..2 }}
-      { "id": "{{ helpers.guid() }}", "amount": {{ helpers.rand_int(10, 500) }} }{{ if !for.last }},{{ end }}
+      { "id": "{{ guid }}", "amount": {{ random_int 10 500 }} }{{ if !for.last }},{{ end }}
     {{ end }}
   ],
   "user": {
-    "username": "{{ helpers.username() }}",
-    "email": "{{ helpers.email() }}"
+    "username": "{{ random_username }}",
+    "email": "{{ random_email }}"
   }
 }
 ```
@@ -534,7 +534,7 @@ Data bucket API: `GET/POST /_admin/collections/{collectionId}/data-buckets`, `GE
     "userId": "{{ request.route.id }}",
     "auth": "{{ request.headers["Authorization"] }}"
   },
-  "requestId": "{{ helpers.guid() }}",
+  "requestId": "{{ guid }}",
   "bodyParsed": {{ request.json }}
 }
 ```
@@ -547,7 +547,7 @@ When the request body is valid JSON, `request.body` is automatically parsed and 
 {
   "greeting": "Hello, {{ request.body.accountName }}!",
   "accountType": "{{ upper request.body.accountType }}",
-  "transferId": "{{ helpers.guid() }}",
+  "transferId": "{{ guid }}",
   "currency": "{{ request.body.currency }}",
   "echoAmount": {{ request.body.amount }},
   "rawPayload": "{{ request.body_raw }}"
@@ -556,7 +556,7 @@ When the request body is valid JSON, `request.body` is automatically parsed and 
 
 For nested JSON: `{{ request.body.user.name }}`, `{{ request.body.address.city }}`.
 
-> Multiple occurrences of the same helper in one response produce different values (e.g. two `{{ helpers.guid() }}` yield two different UUIDs).
+> Multiple occurrences of the same helper in one response produce different values (e.g. two `{{ guid }}` yield two different UUIDs).
 
 ---
 

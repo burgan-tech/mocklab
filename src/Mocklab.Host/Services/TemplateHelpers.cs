@@ -3,7 +3,10 @@ using System.Security.Cryptography;
 namespace Mocklab.Host.Services;
 
 /// <summary>
-/// Instance helper methods for Scriban templates, exposed as <c>helpers</c> (e.g. helpers.guid(), helpers.rand_int(1, 100)).
+/// Instance helper methods for Scriban templates, exposed under the <c>helpers</c> namespace.
+/// In templates, write them as top-level expressions with no parentheses, e.g. {{ guid }}, {{ random_int 1 100 }}
+/// (also reachable as {{ helpers.guid }}). Note: a parameterless call form like {{ helpers.email() }} throws at
+/// render time when the method has a required parameter — pass the argument: {{ helpers.email "my.domain.com" }}.
 /// Uses RandomNumberGenerator for randomness. Stateless and safe (no file/network access).
 /// </summary>
 public sealed class TemplateHelpers
