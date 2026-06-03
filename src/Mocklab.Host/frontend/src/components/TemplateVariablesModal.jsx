@@ -85,7 +85,7 @@ export function TemplateVariablesModal({ visible, onHide }) {
                   ['{{ request.cookies.sessionId }}', 'Request cookie'],
                   ['{{ request.route.id }}', 'Route parameter (e.g. /api/users/{id})'],
                   ['{{ headers["x-correlation-id"] }}', 'Top-level header (case-insensitive)'],
-                  ['{{ headers["x-id"] | helpers.guid() }}', 'Header with fallback if missing'],
+                  ['{{ headers["x-id"] | upper }}', 'Pipe a header value into a helper (uppercase)'],
                 ].map(([expr, desc]) => (
                   <tr key={expr} style={{ borderBottom: '1px solid var(--surface-border)' }}>
                     <td className="py-1 pr-3"><code>{expr}</code></td>
@@ -99,12 +99,12 @@ export function TemplateVariablesModal({ visible, onHide }) {
           {/* ── Helpers ── */}
           <TabPanel header="Helpers">
             <HelperTable rows={[
-              ['{{ helpers.guid() }}', 'Random UUID v4'],
-              ['{{ helpers.rand_int(1, 100) }}', 'Random integer in [min, max]'],
-              ['{{ helpers.alphanum(12) }}', 'Random alphanumeric string (length 12)'],
-              ['{{ helpers.username() }}', 'Random username (e.g. swift_eagle42)'],
-              ['{{ helpers.email() }}', 'Random email'],
-              ['{{ helpers.email("my.domain.com") }}', 'Random email with custom domain'],
+              ['{{ guid }}', 'Random UUID v4'],
+              ['{{ random_int 1 100 }}', 'Random integer in [min, max]'],
+              ['{{ random_alpha_numeric 12 }}', 'Random alphanumeric string (length 12)'],
+              ['{{ random_username }}', 'Random username (e.g. swift_eagle42)'],
+              ['{{ random_email }}', 'Random email'],
+              ['{{ helpers.email "my.domain.com" }}', 'Random email with custom domain'],
               ['{{ upper "hello" }}', 'Convert to uppercase → HELLO'],
               ['{{ lower "HELLO" }}', 'Convert to lowercase → hello'],
               ['{{ upper request.body.accountName }}', 'Uppercase a body field'],
@@ -122,7 +122,7 @@ export function TemplateVariablesModal({ visible, onHide }) {
               ['{{ random_string 8 }}', 'Random string of length 8'],
               ['{{ random_alpha_numeric 10 }}', 'Random alphanumeric string of length 10'],
               ['{{ random_number_string 6 }}', 'Random numeric string of length 6'],
-            ]} note="All helpers work both as {{ helpers.xxx() }} and as top-level {{ xxx }}." />
+            ]} note={'Write helpers as top-level expressions with no parentheses, e.g. {{ guid }} or {{ random_int 1 100 }}. The same helpers are also available under the helpers.* namespace (e.g. {{ helpers.guid }}, {{ helpers.email "my.domain.com" }}).'} />
           </TabPanel>
 
           {/* ── Arithmetic ── */}
@@ -188,7 +188,7 @@ export function TemplateVariablesModal({ visible, onHide }) {
           {/* ── Pre-generated ── */}
           <TabPanel header="Pre-generated">
             <p className="text-xs text-color-secondary mt-0 mb-2">
-              Ready-made domain data. Available both as <code>{'{{ random_xxx }}'}</code> and <code>{'{{ helpers.random_xxx() }}'}</code>.
+              Ready-made domain data. Use as a top-level expression <code>{'{{ random_xxx }}'}</code> (also available as <code>{'{{ helpers.random_xxx }}'}</code>).
             </p>
 
             <div className="font-medium text-xs mb-1 mt-2">Location & Identity</div>
@@ -231,7 +231,7 @@ export function TemplateVariablesModal({ visible, onHide }) {
 {`{
   "greeting": "Hello, {{ request.body.accountName }}!",
   "accountType": "{{ upper request.body.accountType }}",
-  "transferId": "{{ helpers.guid() }}",
+  "transferId": "{{ guid }}",
   "currency": "{{ request.body.currency }}",
   "echoAmount": {{ request.body.amount }},
   "rawPayload": "{{ request.body_raw }}"
@@ -241,9 +241,9 @@ export function TemplateVariablesModal({ visible, onHide }) {
             <div className="font-medium text-xs mb-1">Pre-generated — user profile</div>
             <pre className="surface-ground p-2 border-round overflow-auto text-xs mb-3" style={{ maxHeight: '10rem' }}>
 {`{
-  "id": "{{ helpers.guid() }}",
+  "id": "{{ guid }}",
   "username": "{{ random_username }}",
-  "email": "{{ helpers.email() }}",
+  "email": "{{ random_email }}",
   "role": "{{ random_role }}",
   "age": {{ random_age }},
   "department": "{{ random_department }}",
@@ -264,11 +264,11 @@ export function TemplateVariablesModal({ visible, onHide }) {
             <div className="font-medium text-xs mb-1">Loop + conditional</div>
             <pre className="surface-ground p-2 border-round overflow-auto text-xs mb-3" style={{ maxHeight: '10rem' }}>
 {`{
-  "correlationId": "{{ headers["x-correlation-id"] | helpers.guid() }}",
+  "correlationId": "{{ headers["x-correlation-id"] }}",
   "isPremium": {{ request.query["tier"] == "premium" }},
   "items": [
     {{ for i in 0..2 }}
-      { "id": "{{ helpers.guid() }}", "amount": {{ helpers.rand_int(10, 500) }} }{{ if !for.last }},{{ end }}
+      { "id": "{{ guid }}", "amount": {{ random_int 10 500 }} }{{ if !for.last }},{{ end }}
     {{ end }}
   ]
 }`}

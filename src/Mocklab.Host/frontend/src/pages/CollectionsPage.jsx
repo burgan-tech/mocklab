@@ -32,7 +32,6 @@ export default function CollectionsPage() {
   const [globalFilter, setGlobalFilter] = useState('');
   const [deleteCollectionDialog, setDeleteCollectionDialog] = useState(false);
   const [deleteCollectionId, setDeleteCollectionId] = useState(null);
-  const [deleteCollectionName, setDeleteCollectionName] = useState('');
   const [deleteCollectionMockCount, setDeleteCollectionMockCount] = useState(0);
   const [deleteCollectionMockIds, setDeleteCollectionMockIds] = useState([]);
   const [deleteCollectionMoveToCollectionId, setDeleteCollectionMoveToCollectionId] = useState(null);
@@ -131,7 +130,6 @@ export default function CollectionsPage() {
 
   const openDeleteCollectionDialog = async (col) => {
     setDeleteCollectionId(col.id);
-    setDeleteCollectionName(col.name);
     setDeleteCollectionMockCount(col.mockCount ?? 0);
     setDeleteCollectionMoveToCollectionId(null);
     setDeleteCollectionMoveToFolderId(null);

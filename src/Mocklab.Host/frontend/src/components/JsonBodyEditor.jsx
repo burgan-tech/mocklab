@@ -16,7 +16,7 @@ function tryBeautify(str) {
  * JSON body editor with syntax highlighting and Beautify. Used for response/request body (and rule/sequence body).
  * Auto-beautifies valid JSON on first render. Beautify button is small and right-aligned.
  */
-export function JsonBodyEditor({ value = '', onChange, height = 200, placeholder, autoBeautify = true, 'data-testid': dataTestId, toastRef }) {
+export function JsonBodyEditor({ value = '', onChange, height = 200, autoBeautify = true, 'data-testid': dataTestId, toastRef }) {
   const editorRef = useRef(null);
   const autoBeautifyDoneRef = useRef(false);
 
