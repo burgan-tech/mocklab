@@ -23,7 +23,7 @@ class RequestLogService {
 
     if (!response.ok) {
       let detail = '';
-      try { detail = await response.text(); } catch {}
+      try { detail = await response.text(); } catch { /* ignore body read failure */ }
       throw new Error(`Server error ${response.status}: ${detail || response.statusText}`);
     }
 

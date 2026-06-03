@@ -9,6 +9,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuActive, setMobileMenuActive] = useState(false);
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 991);
   const [logCount, setLogCount] = useState(null);
   const menuRef = useRef(null);
@@ -36,10 +37,11 @@ export default function Layout() {
     return () => clearInterval(interval);
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  // Close mobile menu on route change (adjust state during render — no effect needed)
+  if (prevPathname !== location.pathname) {
+    setPrevPathname(location.pathname);
     setMobileMenuActive(false);
-  }, [location.pathname]);
+  }
 
   // Close mobile menu on outside click
   useEffect(() => {
