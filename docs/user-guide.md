@@ -419,6 +419,18 @@ Rules can use the same template capabilities to produce more contextual response
 
 This allows a single route to return different dynamic payloads depending on which rule is matched.
 
+### Troubleshooting Templates
+
+Template processing is all-or-nothing: if any single token in a response body fails to parse or render, the **whole body is returned as-is** — every `{{ ... }}` stays literal, which makes it look like "helpers don't work". When this happens Mocklab tells you why:
+
+- The response includes an `X-Mocklab-Template-Error` header with the error message.
+- The Request Logs page shows the error in the log detail dialog (Template Error section).
+- The full error is written to the server log.
+
+Common causes: calling a helper with the wrong number of arguments (e.g. `{{ random_alpha_numeric }}` without a length), or using parentheses-with-commas call syntax (`{{ random_int(18, 65) }}`) instead of space-separated arguments (`{{ random_int 18 65 }}`).
+
+> For ISO 8601 timestamps in JSON strings use `{{ iso_timestamp }}` or `{{ now_fmt 'yyyy-MM-ddTHH:mm:ssZ' }}`. Raw `{{ now }}` renders as a short date like `20 Jul 2026` — it returns a DateTime object meant to be passed to `date_time_add` / `date_format`.
+
 ## Common Use Cases
 
 ### Frontend and Mobile Development

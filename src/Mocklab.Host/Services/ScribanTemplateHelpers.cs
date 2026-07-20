@@ -33,8 +33,9 @@ public static class ScribanTemplateHelpers
 
     public static string Guid() => System.Guid.NewGuid().ToString();
 
-    public static int RandomInt() => Random.Shared.Next(1, 1000000);
-    public static int RandomInt(int min, int max) => Random.Shared.Next(min, max + 1);
+    // Single method with optional parameters: Scriban silently drops a second Import
+    // under the same name, so overloads must not be registered separately.
+    public static int RandomInt(int min = 1, int max = 999_999) => Random.Shared.Next(min, max + 1);
     public static double RandomFloat() => Random.Shared.NextDouble() * 1000;
     public static double RandomDouble(double min, double max)
     {
@@ -71,10 +72,6 @@ public static class ScribanTemplateHelpers
             sb.Append(set[Random.Shared.Next(set.Length)]);
         return sb.ToString();
     }
-    /// <summary>Overload for Scriban: random_string(length) with no custom chars.</summary>
-    public static string RandomStringLengthOnly(int length) => RandomString(length, null);
-    /// <summary>Overload for Scriban: random_string(length, chars).</summary>
-    public static string RandomStringWithChars(int length, string chars) => RandomString(length, chars);
 
     public static long Timestamp() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     public static string IsoTimestamp() => DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);

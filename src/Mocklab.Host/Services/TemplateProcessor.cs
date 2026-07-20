@@ -22,6 +22,9 @@ public partial class TemplateProcessor : ITemplateProcessor
         "example.com", "test.org", "mock.io", "demo.dev", "sample.net"
     ];
 
+    public TemplateRenderResult ProcessTemplateDetailed(string template, HttpRequest request, TemplateRequestContext? context = null)
+        => new(ProcessTemplate(template, request, context));
+
     public string ProcessTemplate(string template, HttpRequest request, TemplateRequestContext? context = null)
     {
         if (string.IsNullOrEmpty(template) || !template.Contains("{{"))

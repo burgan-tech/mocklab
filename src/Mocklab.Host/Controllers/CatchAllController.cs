@@ -99,6 +99,7 @@ public class CatchAllController(
 
         IActionResult result;
         int responseStatusCode;
+        string? templateError = null;
 
         if (mockResponse != null)
         {
@@ -188,8 +189,18 @@ public class CatchAllController(
                 await Task.Delay(delayMs.Value);
             }
 
-            // Step 4: Process template variables in response body
-            var processedBody = _templateProcessor.ProcessTemplate(responseBody, Request, templateContext);
+            // Step 4: Process template variables in response body.
+            // On template errors the raw body is returned; surface the error via header + request log
+            // so a single bad token doesn't silently disable the whole template.
+            var renderResult = _templateProcessor.ProcessTemplateDetailed(responseBody, Request, templateContext);
+            var processedBody = renderResult.Output;
+            if (renderResult.Error != null)
+            {
+                templateError = renderResult.Error.ReplaceLineEndings(" ");
+                if (templateError.Length > 500)
+                    templateError = templateError[..500];
+                Response.Headers["X-Mocklab-Template-Error"] = templateError;
+            }
 
             // Step 5: Return response using ContentResult to avoid deserialize/re-serialize issues
             // Previously JsonSerializer.Deserialize<object> caused 204 No Content bug
@@ -224,14 +235,14 @@ public class CatchAllController(
         stopwatch.Stop();
 
         // Log the request
-        await LogRequestAsync(requestMethod, requestPath, queryString, requestBody, mockResponse, responseStatusCode, stopwatch.ElapsedMilliseconds);
+        await LogRequestAsync(requestMethod, requestPath, queryString, requestBody, mockResponse, responseStatusCode, stopwatch.ElapsedMilliseconds, templateError);
 
         return result;
     }
 
     private async Task LogRequestAsync(
         string method, string path, string? queryString, string? requestBody,
-        Models.MockResponse? matchedMock, int responseStatusCode, long responseTimeMs)
+        Models.MockResponse? matchedMock, int responseStatusCode, long responseTimeMs, string? templateError = null)
     {
         try
         {
@@ -247,7 +258,8 @@ public class CatchAllController(
                 ResponseStatusCode = responseStatusCode,
                 IsMatched = matchedMock != null,
                 Timestamp = DateTime.UtcNow,
-                ResponseTimeMs = responseTimeMs
+                ResponseTimeMs = responseTimeMs,
+                TemplateError = templateError
             };
 
             _dbContext.RequestLogs.Add(requestLog);
