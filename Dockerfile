@@ -10,15 +10,15 @@ RUN cd frontend && npm run build
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy solution and project files
-COPY Mocklab.slnx .
+# Copy project files (only what the image needs — test projects in the
+# solution are intentionally excluded, so restore targets the app project)
 COPY src/Mocklab.Host/Mocklab.Host.csproj src/Mocklab.Host/
 COPY src/Mocklab.Data/Mocklab.Data.csproj src/Mocklab.Data/
 COPY src/Mocklab.Migrations.Sqlite/Mocklab.Migrations.Sqlite.csproj src/Mocklab.Migrations.Sqlite/
 COPY src/Mocklab.Migrations.PostgreSql/Mocklab.Migrations.PostgreSql.csproj src/Mocklab.Migrations.PostgreSql/
 
-# Restore dependencies
-RUN dotnet restore Mocklab.slnx
+# Restore dependencies (transitively restores referenced projects)
+RUN dotnet restore src/Mocklab.Host/Mocklab.Host.csproj
 
 # Copy all source code
 COPY src/ src/
