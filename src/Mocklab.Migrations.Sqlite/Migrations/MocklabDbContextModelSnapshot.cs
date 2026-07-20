@@ -326,6 +326,9 @@ namespace Mocklab.Migrations.Sqlite.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TemplateError")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("TEXT");
 

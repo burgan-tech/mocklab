@@ -61,4 +61,10 @@ public class RequestLog
     /// Response time in milliseconds (including any configured delay)
     /// </summary>
     public long? ResponseTimeMs { get; set; }
+
+    /// <summary>
+    /// Scriban template parse/render error for the response body, if any.
+    /// When set, the response body was returned unprocessed (raw template).
+    /// </summary>
+    public string? TemplateError { get; set; }
 }

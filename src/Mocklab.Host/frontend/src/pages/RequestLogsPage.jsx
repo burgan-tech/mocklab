@@ -510,6 +510,16 @@ export default function RequestLogsPage() {
                 </div>
               </div>
             </div>
+            {selectedLog.templateError && (
+              <div className="col-12">
+                <div className="field">
+                  <label className="font-semibold text-sm text-color-secondary">Template Error</label>
+                  <pre className="mt-1 p-3 border-round text-sm" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: '150px', overflow: 'auto', background: 'var(--red-50)', color: 'var(--red-700)' }}>
+                    {selectedLog.templateError}
+                  </pre>
+                </div>
+              </div>
+            )}
             {selectedLog.requestBody && (
               <div className="col-12">
                 <div className="field">

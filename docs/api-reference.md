@@ -558,6 +558,18 @@ For nested JSON: `{{ request.body.user.name }}`, `{{ request.body.address.city }
 
 > Multiple occurrences of the same helper in one response produce different values (e.g. two `{{ guid }}` yield two different UUIDs).
 
+### Template error reporting (`X-Mocklab-Template-Error`)
+
+Template processing is all-or-nothing: if any token in the response body fails to parse or render, the **entire body is returned unprocessed** (raw template). When that happens Mocklab reports the failure instead of hiding it:
+
+- the response carries an `X-Mocklab-Template-Error` header with the parse/render error message (truncated to 500 chars),
+- the error is stored on the request log entry (`templateError` field, visible in the Request Logs detail dialog in the admin UI),
+- the full error is written to the server log.
+
+So if your response still contains literal `{{ ... }}` text, check the `X-Mocklab-Template-Error` header of that response — it points at the offending token.
+
+> Tip: for ISO 8601 timestamps inside JSON strings prefer `{{ iso_timestamp }}` or `{{ now_fmt 'yyyy-MM-ddTHH:mm:ssZ' }}`. Raw `{{ now }}` returns a DateTime object intended for date helpers such as `date_time_add`, and its default string format is not ISO 8601.
+
 ---
 
 ## Response Delays
