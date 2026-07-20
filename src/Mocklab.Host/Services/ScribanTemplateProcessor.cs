@@ -20,9 +20,12 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
     }
 
     public string ProcessTemplate(string template, HttpRequest request, TemplateRequestContext? context = null)
+        => ProcessTemplateDetailed(template, request, context).Output;
+
+    public TemplateRenderResult ProcessTemplateDetailed(string template, HttpRequest request, TemplateRequestContext? context = null)
     {
         if (string.IsNullOrEmpty(template))
-            return template;
+            return new TemplateRenderResult(template ?? string.Empty);
 
         var bodyForTemplate = context?.RequestBody;
         if (bodyForTemplate == null && request.Body != null && request.Body.CanSeek)
@@ -87,7 +90,7 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
         helpersObj.Import("email", (Func<object?, string>)(d => helpersInstance.email(d?.ToString())));
 
         // All ScribanTemplateHelpers also available under helpers.*
-        helpersObj.Import("random_int", (Func<int>)ScribanTemplateHelpers.RandomInt);
+        helpersObj.Import("random_int", (Func<int, int, int>)ScribanTemplateHelpers.RandomInt);
         helpersObj.Import("random_float", (Func<double>)ScribanTemplateHelpers.RandomFloat);
         helpersObj.Import("random_name", (Func<string>)ScribanTemplateHelpers.RandomName);
         helpersObj.Import("random_first_name", (Func<string>)ScribanTemplateHelpers.RandomFirstName);
@@ -95,7 +98,7 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
         helpersObj.Import("random_email", (Func<string>)ScribanTemplateHelpers.RandomEmail);
         helpersObj.Import("random_phone", (Func<string>)ScribanTemplateHelpers.RandomPhone);
         helpersObj.Import("random_alpha_numeric", (Func<int, string>)ScribanTemplateHelpers.RandomAlphaNumeric);
-        helpersObj.Import("random_string", (Func<int, string>)ScribanTemplateHelpers.RandomStringLengthOnly);
+        helpersObj.Import("random_string", (Func<int, string?, string>)ScribanTemplateHelpers.RandomString);
         helpersObj.Import("random_bool", (Func<bool>)ScribanTemplateHelpers.RandomBool);
         helpersObj.Import("upper", (Func<string?, string>)ScribanTemplateHelpers.Upper);
         helpersObj.Import("lower", (Func<string?, string>)ScribanTemplateHelpers.Lower);
@@ -151,8 +154,10 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
         scriptObject.Add("helpers", helpersObj);
 
         // Built-in helper functions (explicit register for static methods and overloads)
+        // NOTE: never Import the same name twice on one ScriptObject — Scriban's Import
+        // uses TrySetValue and silently ignores the second registration (first one wins).
+        // Optional/variadic arguments must be expressed on a single method instead.
         scriptObject.Import("guid", (Func<string>)ScribanTemplateHelpers.Guid);
-        scriptObject.Import("random_int", (Func<int>)ScribanTemplateHelpers.RandomInt);
         scriptObject.Import("random_int", (Func<int, int, int>)ScribanTemplateHelpers.RandomInt);
         scriptObject.Import("random_float", (Func<double>)ScribanTemplateHelpers.RandomFloat);
         scriptObject.Import("random_double", (Func<double, double, double>)ScribanTemplateHelpers.RandomDouble);
@@ -162,8 +167,7 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
         scriptObject.Import("random_email", (Func<string>)ScribanTemplateHelpers.RandomEmail);
         scriptObject.Import("random_phone", (Func<string>)ScribanTemplateHelpers.RandomPhone);
         scriptObject.Import("random_alpha_numeric", (Func<int, string>)ScribanTemplateHelpers.RandomAlphaNumeric);
-        scriptObject.Import("random_string", (Func<int, string>)ScribanTemplateHelpers.RandomStringLengthOnly);
-        scriptObject.Import("random_string", (Func<int, string, string>)ScribanTemplateHelpers.RandomStringWithChars);
+        scriptObject.Import("random_string", (Func<int, string?, string>)ScribanTemplateHelpers.RandomString);
         scriptObject.Import("timestamp", (Func<long>)ScribanTemplateHelpers.Timestamp);
         scriptObject.Import("iso_timestamp", (Func<string>)ScribanTemplateHelpers.IsoTimestamp);
         // now() → current UTC DateTime (pass to date_time_add / date_time_add_fmt)
@@ -261,16 +265,17 @@ public partial class ScribanTemplateProcessor : ITemplateProcessor
             var parsed = Template.Parse(normalized);
             if (parsed.HasErrors)
             {
-                _logger.LogWarning("Scriban parse errors: {Errors}", string.Join("; ", parsed.Messages));
-                return template;
+                var errors = string.Join("; ", parsed.Messages);
+                _logger.LogWarning("Scriban parse errors: {Errors}", errors);
+                return new TemplateRenderResult(template, errors);
             }
             var result = parsed.Render(templateContext);
-            return result ?? string.Empty;
+            return new TemplateRenderResult(result ?? string.Empty);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Scriban render failed for template (first 200 chars): {Preview}", template.Length > 200 ? template[..200] + "..." : template);
-            return template;
+            return new TemplateRenderResult(template, ex.Message);
         }
     }
 
